@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>사방신 무림전 (四方神 武林傳) - 1v1 온라인 대전</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- PeerJS WebRTC P2P DataChannel Library -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+
+  <div id="game-container">
+    <!-- Main Battle Canvas -->
+    <canvas id="gameCanvas" width="1280" height="720"></canvas>
+
+    <!-- Announcer Banner (결전 개시 / 승부 갈림) -->
+    <div id="announcer-banner">결전(決戰) 개시!</div>
+
+    <!-- Battle HUD Layer -->
+    <div id="battle-hud" class="ui-layer">
+      <!-- 1P Health & SP HUD -->
+      <div class="fighter-hud p1">
+        <div class="hud-info">
+          <span class="char-badge" id="p1-badge">신속의 청도검객</span>
+          <span class="fighter-name" id="p1-name">청룡</span>
+        </div>
+        <div class="hp-container">
+          <div class="hp-lag" id="p1-hp-lag" style="width: 100%;"></div>
+          <div class="hp-bar" id="p1-hp-bar" style="width: 100%;"></div>
+        </div>
+        <div class="sp-container">
+          <div class="sp-bar" id="p1-sp-bar" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- Center Round Timer & Match Info -->
+      <div class="hud-center">
+        <div class="round-timer" id="round-timer">99</div>
+        <div class="mode-badge" id="hud-mode-badge">온라인 1v1 대전</div>
+      </div>
+
+      <!-- 2P / Opponent Health & SP HUD -->
+      <div class="fighter-hud p2">
+        <div class="hud-info">
+          <span class="char-badge" id="p2-badge">파천의 패도전사</span>
+          <span class="fighter-name" id="p2-name">백호</span>
+        </div>
+        <div class="hp-container">
+          <div class="hp-lag" id="p2-hp-lag" style="width: 100%;"></div>
+          <div class="hp-bar" id="p2-hp-bar" style="width: 100%;"></div>
+        </div>
+        <div class="sp-container">
+          <div class="sp-bar" id="p2-sp-bar" style="width: 0%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lobby / Character Selection Screen -->
+    <div id="select-screen">
+      <div class="select-header">
+        <h1 class="game-title">사방신 무림전 (四方神 武林傳)</h1>
+        <p class="select-subtitle">1v1 ROOM CODE MULTIPLAYER WUXIA FIGHTING</p>
+      </div>
+
+      <!-- 4 Gods Character Cards -->
+      <div class="cards-container">
+        <!-- 1. 청룡 (Blue Dragon) -->
+        <div class="char-card selected-p1" data-char="BLUE_DRAGON" style="--card-color: #00f3ff; --card-glow: rgba(0, 243, 255, 0.4);">
+          <canvas class="char-avatar-canvas"></canvas>
+          <div class="char-name-kr">청룡 (靑龍)</div>
+          <div class="char-title">신속의 청도검객</div>
+          <div class="char-tagline">청록색 도포와 날렵한 검기<br>질풍의 쾌속 연격과 원거리 검풍</div>
+          <div class="stat-group">
+            <div class="stat-row">
+              <span>속도 (SPD)</span>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 100%;"></div></div>
+            </div>
+            <div class="stat-row">
+              <span>위력 (ATK)</span>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 60%;"></div></div>
+            </div>
+            <div class="stat-row">
+              <span>사거리 (RNG)</span>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 80%;"></div></div>
+            </div>
+            <div class="stat-row">
+              <span>방어력 (DEF)</span>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 50%;"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. 백호 (White Tiger) -->
+        <div class="char-card" data-char="WHITE_TIGER" style="--card-color: #ffd700; --card-glow: rgba(255, 215, 0, 0.4);">
+          <canvas class="char-avatar-canvas"></canvas>
+          <div class="char-name-kr">백호 (白虎)</div>
+          <div class="char-title">파천의 패도전사</div>
+          <div class="char-tagline">묵직한 갑주와 백호대도<br>대지를 분쇄하는 괴력과 가드 파괴</div>
+          <div class="stat-group">
+            <div class="stat-row">
+              <span>속도 (SPD)</span>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 40%;"></div></div>
+            </div>
+            <div class="stat-row">
+              <span>위력 (ATK)</span>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 100%;"></div></div>
+            </div>
+            <div class="stat-row">
+              <span>사거리 (RNG)</span>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 60%;"></div></div>
+            </div>
+            <div class="stat-row">
+              <span>방어력 (DEF)</span>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 90%;"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. 주작 (Vermilion Bird) -->
+        <div class="char-card" data-char="VERMILION_BIRD" style="--card-color: #ff3344; --card-glow: rgba(255, 51, 68, 0.4);">
+          <canvas class="char-avatar-canvas"></canvas>
+          <div class="char-name-kr">주작 (朱雀)</div>
+          <div class="char-title">불멸의 선무가</div>
+          <div class="char-tagline">진홍빛 날개 도포와 주작철선<br>공중 2단 도약과 화염 탄막 연계</div>
+          <div class="stat-group">
+            <div class="stat-row">
+              <span>속도 (SPD)</span>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 80%;"></div></div>
+            </div>
+            <div class="stat-row">
+              <span>위력 (ATK)</span>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 70%;"></div></div>
+            </div>
+            <div class="stat-row">
+              <span>사거리 (RNG)</span>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 90%;"></div></div>
+            </div>
+            <div class="stat-row">
+              <span>방어력 (DEF)</span>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 40%;"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. 현무 (Black Tortoise) -->
+        <div class="char-card" data-char="BLACK_TORTOISE" style="--card-color: #3a7afe; --card-glow: rgba(58, 122, 254, 0.4);">
+          <canvas class="char-avatar-canvas"></canvas>
+          <div class="char-name-kr">현무 (玄武)</div>
+          <div class="char-title">심연의 흑도사</div>
+          <div class="char-tagline">짙은 먹빛 도포와 현무사슬낫<br>결계 범위 제어와 수경 카운터</div>
+          <div class="stat-group">
+            <div class="stat-row">
+              <span>속도 (SPD)</span>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 40%;"></div></div>
+            </div>
+            <div class="stat-row">
+              <span>위력 (ATK)</span>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 70%;"></div></div>
+            </div>
+            <div class="stat-row">
+              <span>사거리 (RNG)</span>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 100%;"></div></div>
+            </div>
+            <div class="stat-row">
+              <span>방어력 (DEF)</span>
+              <div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 100%;"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls Preview & Action Buttons -->
+      <div class="select-footer">
+        <div class="controls-preview">
+          <div>
+            <strong>1P 무공 조작계 (모든 플레이어 공통):</strong>
+          </div>
+          <div>
+            <span class="key-pill">A</span><span class="key-pill">D</span> 이동 · 
+            <span class="key-pill">W</span> 도약 · 
+            <span class="key-pill">S</span> 방어/수경 · 
+            <span class="key-pill">J</span> 기본 공격 연타 · 
+            <span class="key-pill">K</span> 무기 특수기 · 
+            <span class="key-pill">L</span> 사방신 궁극기 (SP 100%)
+          </div>
+        </div>
+
+        <!-- Match Modes -->
+        <div class="room-actions">
+          <button class="btn-lobby" id="btn-practice-mode">혼자 연습 (vs AI)</button>
+          <button class="btn-lobby" id="btn-join-modal">방 참가하기</button>
+          <button class="btn-lobby primary" id="btn-create-room">방 만들기 (룸 코드)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 1: Create Room (방 만들기) -->
+    <div id="modal-create-room" class="modal-overlay">
+      <div class="modal-content">
+        <h3 class="modal-title">대전 룸 생성 완료</h3>
+        <p class="modal-desc">아래 6자리 룸 코드를 복사하여 대전할 상대에게 알려주세요.</p>
+        <div class="room-code-display" id="display-room-code">------</div>
+        <div class="status-waiting">상대방의 입장을 기다리는 중...</div>
+        <div class="modal-buttons">
+          <button class="btn-lobby" id="btn-copy-code">코드 복사</button>
+          <button class="btn-lobby" id="btn-cancel-create">취소</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 2: Join Room (방 참가하기) -->
+    <div id="modal-join-room" class="modal-overlay">
+      <div class="modal-content">
+        <h3 class="modal-title">대전 룸 참가</h3>
+        <p class="modal-desc">상대방이 생성한 6자리 룸 코드를 입력하세요.</p>
+        <input type="text" id="input-join-code" class="room-code-input" maxlength="6" placeholder="A7X9P2">
+        <div id="join-status-text" class="status-waiting"></div>
+        <div class="modal-buttons">
+          <button class="btn-lobby primary" id="btn-confirm-join">참가하기</button>
+          <button class="btn-lobby" id="btn-cancel-join">취소</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Match Result / Victory Screen -->
+    <div id="result-screen">
+      <h2 class="victory-title" id="victory-title">승리 (VICTORY)</h2>
+      <p class="victory-subtitle" id="victory-subtitle">청룡 승리!</p>
+      <div class="result-buttons">
+        <button class="btn-result primary" id="btn-rematch">재대결 요청</button>
+        <button class="btn-result" id="btn-to-select">대기실로 이동</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts in dependency order -->
+  <script src="js/engine/constants.js"></script>
+  <script src="js/engine/input.js"></script>
+  <script src="js/engine/network.js"></script>
+  <script src="js/engine/audio.js"></script>
+  <script src="js/engine/particles.js"></script>
+  <script src="js/gameplay/stage.js"></script>
+  <script src="js/gameplay/characters.js"></script>
+  <script src="js/gameplay/projectile.js"></script>
+  <script src="js/gameplay/stickman.js"></script>
+  <script src="js/gameplay/ai.js"></script>
+  <script src="js/gameplay/combat.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
