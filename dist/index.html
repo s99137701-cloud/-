@@ -1,0 +1,2747 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>사방신 무림전 (四方神 武林傳) - 수묵담채화 SD 대전</title>
+  <!-- WebRTC P2P DataChannel Library -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+  <!-- Google Fonts: Noto Serif KR (조선 회화풍 서체) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --hanji-bg: #f6f1e5;
+      --hanji-dark: #231f1a;
+      --ink-black: #111418;
+      --ink-wash: rgba(17, 20, 24, 0.88);
+      --border-gold: #c59b27;
+      --border-gold-glow: rgba(197, 155, 39, 0.45);
+      --seal-red: #c92a2a;
+      --cyan-dragon: #0096c7;
+      --crimson-bird: #e63946;
+      --amber-tiger: #f77f00;
+      --dark-tortoise: #212529;
+      --font-wuxia: 'Noto Serif KR', 'Batang', serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background-color: #12100e;
+      color: #332d25;
+      font-family: var(--font-wuxia);
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: radial-gradient(circle at center, #2e261f 0%, #0a0806 100%);
+    }
+
+    /* 16:9 반응형 캔버스 프레임 (동양화 족자 액자 테두리) */
+    #game-container {
+      position: relative;
+      width: min(1280px, 100vw, 177.78vh);
+      height: min(720px, 56.25vw, 100vh);
+      aspect-ratio: 16 / 9;
+      box-shadow: 0 25px 80px rgba(0, 0, 0, 0.95), 0 0 50px rgba(197, 155, 39, 0.25);
+      border: 4px solid var(--border-gold);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--hanji-bg);
+    }
+
+    canvas#gameCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .ui-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .ui-layer * {
+      pointer-events: auto;
+    }
+
+    /* =========================================
+       1. 전투 상단 HUD (수묵화풍 체력 & 기력 게이지)
+    ========================================= */
+    #battle-hud {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 22px 36px;
+      justify-content: space-between;
+      align-items: flex-start;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .hud-player {
+      display: flex;
+      flex-direction: column;
+      width: 440px;
+      position: relative;
+    }
+
+    .hud-player.p2 {
+      align-items: flex-end;
+    }
+
+    .player-profile-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+
+    .hud-player.p2 .player-profile-row {
+      flex-direction: row-reverse;
+    }
+
+    /* 낙관 도장 스타일의 원형 아바타 */
+    .seal-avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: 2px solid var(--border-gold);
+      background: var(--hanji-dark);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+      position: relative;
+    }
+
+    .seal-avatar::after {
+      content: '';
+      position: absolute;
+      inset: 2px;
+      border: 1px dashed rgba(255, 255, 255, 0.4);
+      border-radius: 50%;
+    }
+
+    .name-title-box {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .hud-player.p2 .name-title-box {
+      text-align: right;
+    }
+
+    .player-name-kr {
+      font-size: 18px;
+      font-weight: 900;
+      color: var(--hanji-dark);
+      text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.8);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hud-player.p2 .player-name-kr {
+      justify-content: flex-end;
+    }
+
+    .player-title-tag {
+      font-size: 11px;
+      color: #6c584c;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    /* 체력 바 (HP) - 붉은 먹빛 게이지 */
+    .bar-frame {
+      width: 100%;
+      height: 22px;
+      background: rgba(25, 20, 16, 0.85);
+      border: 2px solid var(--border-gold);
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.8), 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .hp-fill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #b7094c, #c92a2a, #ff6b6b);
+      transition: width 0.15s ease-out;
+      position: relative;
+    }
+
+    .hud-player.p2 .hp-fill {
+      float: right;
+      background: linear-gradient(270deg, #b7094c, #c92a2a, #ff6b6b);
+    }
+
+    .hp-text {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 11px;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 1px 1px 2px #000;
+      letter-spacing: 0.5px;
+      padding: 0 8px;
+    }
+
+    .hud-player.p1 .hp-text { left: 4px; }
+    .hud-player.p2 .hp-text { right: 4px; }
+
+    /* 기력 게이지 (SP) - 금빛 먹선 */
+    .sp-frame {
+      width: 82%;
+      height: 12px;
+      margin-top: 5px;
+      background: rgba(25, 20, 16, 0.85);
+      border: 1.5px solid var(--border-gold);
+      border-radius: 3px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .sp-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #d4a373, #faedcd, #ffd166);
+      box-shadow: 0 0 8px rgba(255, 209, 102, 0.8);
+      transition: width 0.2s ease-out;
+    }
+
+    .hud-player.p2 .sp-fill {
+      float: right;
+    }
+
+    .sp-tag {
+      position: absolute;
+      top: -1px;
+      font-size: 9px;
+      font-weight: 900;
+      color: #332717;
+      line-height: 12px;
+      padding: 0 5px;
+    }
+    .hud-player.p1 .sp-tag { right: 4px; color: #fff; }
+    .hud-player.p2 .sp-tag { left: 4px; color: #fff; }
+
+    /* 중앙 원형 타이머 & 태극 문양 */
+    #round-timer-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      top: -4px;
+    }
+
+    .timer-circle {
+      width: 66px;
+      height: 66px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #fcf8ee 0%, #e6dcc8 80%, #a48c65 100%);
+      border: 3px solid var(--border-gold);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), 0 0 15px var(--border-gold-glow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 30px;
+      font-weight: 900;
+      color: #1a1612;
+      position: relative;
+    }
+
+    .season-stamp {
+      margin-top: 6px;
+      background: var(--ink-wash);
+      color: #f7ede2;
+      border: 1px solid var(--border-gold);
+      padding: 3px 12px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    }
+
+    /* 콤보 카운트 표시 */
+    .combo-display {
+      position: absolute;
+      top: 110px;
+      font-size: 26px;
+      font-weight: 900;
+      color: #c92a2a;
+      text-shadow: 2px 2px 0 #fff, 0 0 10px rgba(201, 42, 42, 0.5);
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      transform: scale(0.8);
+      pointer-events: none;
+    }
+    .combo-display.active {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+    #combo-p1 { left: 45px; }
+    #combo-p2 { right: 45px; text-align: right; }
+
+    /* =========================================
+       2. 메인 로비 / 캐릭터 선택 화면 (수묵화 족자)
+    ========================================= */
+    #select-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, rgba(246, 241, 229, 0.94) 0%, rgba(220, 209, 188, 0.96) 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24px 40px;
+      z-index: 20;
+    }
+
+    .lobby-header {
+      text-align: center;
+    }
+
+    .game-logo-title {
+      font-size: 44px;
+      font-weight: 900;
+      color: #121418;
+      letter-spacing: 4px;
+      text-shadow: 2px 2px 0 rgba(255, 255, 255, 0.8), 0 0 20px rgba(197, 155, 39, 0.3);
+      position: relative;
+      display: inline-block;
+    }
+
+    .game-logo-title::before, .game-logo-title::after {
+      content: '◆';
+      color: var(--border-gold);
+      font-size: 20px;
+      vertical-align: middle;
+      margin: 0 12px;
+    }
+
+    .game-subtitle {
+      font-size: 14px;
+      color: #5c4d3c;
+      letter-spacing: 3px;
+      margin-top: 4px;
+      font-weight: 600;
+    }
+
+    /* 4인 캐릭터 카드 그리드 */
+    .char-card-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      width: 100%;
+      max-width: 1160px;
+      margin: 12px 0;
+    }
+
+    .char-card {
+      background: #fdfaf5;
+      border: 3px solid #d4c2a5;
+      border-radius: 8px;
+      padding: 16px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+      position: relative;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    .char-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: var(--card-color, #333);
+    }
+
+    .char-card:hover {
+      transform: translateY(-8px);
+      border-color: var(--border-gold);
+      box-shadow: 0 14px 28px rgba(0,0,0,0.18), 0 0 20px var(--border-gold-glow);
+    }
+
+    .char-card.selected {
+      border-color: var(--seal-red);
+      background: #fffdf9;
+      box-shadow: 0 12px 30px rgba(201, 42, 42, 0.25), 0 0 0 2px var(--seal-red);
+      transform: translateY(-6px);
+    }
+
+    .char-card.selected::after {
+      content: '선택됨 (1P)';
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: var(--seal-red);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 900;
+      padding: 2px 7px;
+      border-radius: 10px;
+    }
+
+    .char-avatar-canvas {
+      width: 110px;
+      height: 120px;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    .char-name-kr {
+      font-size: 21px;
+      font-weight: 900;
+      color: #1d1915;
+      margin-bottom: 2px;
+    }
+
+    .char-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #7f6a55;
+      margin-bottom: 10px;
+      letter-spacing: 0.5px;
+    }
+
+    .char-tagline {
+      font-size: 11px;
+      color: #4a3e33;
+      text-align: center;
+      line-height: 1.4;
+      height: 32px;
+      margin-bottom: 10px;
+      word-break: keep-all;
+    }
+
+    .stat-group {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding-top: 8px;
+      border-top: 1px dashed #decbb3;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: #635343;
+      font-weight: 600;
+    }
+
+    .stat-bar-bg {
+      width: 60%;
+      height: 6px;
+      background: #e8ded1;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .stat-bar-fill {
+      height: 100%;
+      background: var(--card-color, #c59b27);
+      border-radius: 3px;
+    }
+
+    /* 하단 컨트롤 설명 & 액션 버튼 */
+    .select-footer {
+      width: 100%;
+      max-width: 1160px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 2px solid #d4c2a5;
+    }
+
+    .controls-preview {
+      font-size: 12px;
+      color: #4d4033;
+      line-height: 1.6;
+    }
+
+    .key-pill {
+      display: inline-block;
+      background: #ebe0cf;
+      border: 1px solid #bba78c;
+      padding: 1px 7px;
+      border-radius: 4px;
+      font-weight: 900;
+      color: #1a1612;
+      margin: 0 2px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .room-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-wuxia {
+      font-family: var(--font-wuxia);
+      font-size: 15px;
+      font-weight: 900;
+      padding: 12px 26px;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 2px solid var(--border-gold);
+      background: #fdfbf7;
+      color: #2b251d;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      letter-spacing: 1px;
+    }
+
+    .btn-wuxia:hover {
+      background: #f4ecdc;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+    }
+
+    .btn-wuxia.primary {
+      background: linear-gradient(135deg, #c92a2a 0%, #9e1f1f 100%);
+      color: #fff;
+      border-color: #771717;
+      box-shadow: 0 4px 12px rgba(201, 42, 42, 0.35);
+    }
+
+    .btn-wuxia.primary:hover {
+      background: linear-gradient(135deg, #db3636 0%, #b22424 100%);
+      box-shadow: 0 6px 18px rgba(201, 42, 42, 0.5);
+    }
+
+    /* =========================================
+       3. 모달 레이어 (방 만들기 / 방 참가)
+    ========================================= */
+    .modal-overlay {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(14, 12, 10, 0.75);
+      backdrop-filter: blur(4px);
+      justify-content: center;
+      align-items: center;
+      z-index: 50;
+    }
+
+    .modal-content {
+      background: #fbf7ee;
+      border: 3px solid var(--border-gold);
+      border-radius: 8px;
+      padding: 32px 42px;
+      width: 440px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+      text-align: center;
+      position: relative;
+    }
+
+    .modal-title {
+      font-size: 24px;
+      font-weight: 900;
+      color: #1a1612;
+      margin-bottom: 12px;
+      letter-spacing: 2px;
+    }
+
+    .modal-desc {
+      font-size: 13px;
+      color: #635445;
+      margin-bottom: 22px;
+      line-height: 1.5;
+    }
+
+    .room-code-display {
+      font-size: 38px;
+      font-weight: 900;
+      letter-spacing: 8px;
+      color: #c92a2a;
+      background: #ece3d2;
+      border: 2px dashed #bba688;
+      border-radius: 6px;
+      padding: 14px 20px;
+      margin-bottom: 18px;
+      font-family: monospace;
+      text-shadow: 1px 1px 0 #fff;
+    }
+
+    .room-code-input {
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: 6px;
+      text-align: center;
+      color: #1a1612;
+      background: #fff;
+      border: 2px solid var(--border-gold);
+      border-radius: 6px;
+      padding: 10px 16px;
+      width: 80%;
+      margin: 0 auto 18px auto;
+      text-transform: uppercase;
+      font-family: monospace;
+      outline: none;
+    }
+
+    .room-code-input:focus {
+      border-color: #c92a2a;
+      box-shadow: 0 0 10px rgba(201, 42, 42, 0.3);
+    }
+
+    .status-waiting {
+      font-size: 13px;
+      color: #7f6b55;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    /* 승패 결과 화면 */
+    #result-screen {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(14, 12, 10, 0.85);
+      backdrop-filter: blur(6px);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 40;
+    }
+
+    .victory-title {
+      font-size: 64px;
+      font-weight: 900;
+      color: #f7ede2;
+      letter-spacing: 8px;
+      text-shadow: 0 0 25px rgba(255, 215, 0, 0.6), 2px 2px 0 #000;
+      margin-bottom: 12px;
+      transform: scale(0.9);
+      animation: victoryPulse 1.5s infinite alternate ease-in-out;
+    }
+
+    @keyframes victoryPulse {
+      from { transform: scale(0.95); text-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+      to { transform: scale(1.05); text-shadow: 0 0 40px rgba(255, 215, 0, 0.9); }
+    }
+
+    .victory-subtitle {
+      font-size: 20px;
+      color: #decbb3;
+      margin-bottom: 36px;
+      letter-spacing: 2px;
+    }
+
+    .result-buttons {
+      display: flex;
+      gap: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 전체 게임 컨테이너 (16:9 프레임) -->
+  <div id="game-container">
+    <!-- HTML5 메인 렌더링 캔버스 -->
+    <canvas id="gameCanvas" width="1280" height="720"></canvas>
+
+    <!-- UI LAYER: 전투 상단 HUD -->
+    <div id="battle-hud" class="ui-layer">
+      <!-- 1P HUD (좌측) -->
+      <div class="hud-player p1">
+        <div class="player-profile-row">
+          <div class="seal-avatar" id="avatar-p1">龍</div>
+          <div class="name-title-box">
+            <div class="player-name-kr">
+              <span id="name-p1">청룡</span>
+              <span style="font-size: 11px; background: #c59b27; color:#fff; padding:1px 5px; border-radius:3px;">1P</span>
+            </div>
+            <div class="player-title-tag" id="title-p1">질풍 청룡검객</div>
+          </div>
+        </div>
+        <div class="bar-frame">
+          <div class="hp-fill" id="hp-p1"></div>
+          <div class="hp-text" id="hp-txt-p1">1000 / 1000</div>
+        </div>
+        <div class="sp-frame">
+          <div class="sp-fill" id="sp-p1"></div>
+          <div class="sp-tag">기력 (SP)</div>
+        </div>
+      </div>
+
+      <!-- 중앙 라운드 타이머 & 계절 낙관 -->
+      <div id="round-timer-box">
+        <div class="timer-circle" id="timer-text">99</div>
+        <div class="season-stamp" id="season-text">봄 · 滿花方暢</div>
+      </div>
+
+      <!-- 2P HUD (우측) -->
+      <div class="hud-player p2">
+        <div class="player-profile-row">
+          <div class="seal-avatar" id="avatar-p2">虎</div>
+          <div class="name-title-box">
+            <div class="player-name-kr">
+              <span style="font-size: 11px; background: #6c584c; color:#fff; padding:1px 5px; border-radius:3px;">2P</span>
+              <span id="name-p2">백호</span>
+            </div>
+            <div class="player-title-tag" id="title-p2">뇌전 백호도투</div>
+          </div>
+        </div>
+        <div class="bar-frame">
+          <div class="hp-fill" id="hp-p2"></div>
+          <div class="hp-text" id="hp-txt-p2">1000 / 1000</div>
+        </div>
+        <div class="sp-frame">
+          <div class="sp-fill" id="sp-p2"></div>
+          <div class="sp-tag">기력 (SP)</div>
+        </div>
+      </div>
+
+      <!-- 콤보 카운트 표시 -->
+      <div class="combo-display" id="combo-p1">0 콤보!</div>
+      <div class="combo-display" id="combo-p2">0 콤보!</div>
+    </div>
+
+    <!-- UI LAYER: 메인 로비 / 캐릭터 선택창 -->
+    <div id="select-screen" class="ui-layer">
+      <div class="lobby-header">
+        <h1 class="game-logo-title">사방신 무림전</h1>
+        <p class="game-subtitle">四方神 武林傳 · 정통 수묵담채화 메이플 SD 대전</p>
+      </div>
+
+      <!-- 4인 캐릭터 카드 그리드 -->
+      <div class="char-card-grid">
+        <!-- 1. 청룡 -->
+        <div class="char-card selected" data-char="BLUE_DRAGON" style="--card-color: #0096c7;">
+          <canvas class="char-avatar-canvas" id="canvas-card-BLUE_DRAGON"></canvas>
+          <div class="char-name-kr">청룡 (靑龍)</div>
+          <div class="char-title">질풍 청룡검객</div>
+          <div class="char-tagline">날렵한 신법과 예리한 검기, 질풍의 연계 3단 베기</div>
+          <div class="stat-group">
+            <div class="stat-row"><span>속도 (SPD)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 90%;"></div></div></div>
+            <div class="stat-row"><span>공격 (ATK)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 75%;"></div></div></div>
+            <div class="stat-row"><span>사거리 (RNG)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 70%;"></div></div></div>
+            <div class="stat-row"><span>방어 (DEF)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 60%;"></div></div></div>
+          </div>
+        </div>
+
+        <!-- 2. 백호 -->
+        <div class="char-card" data-char="WHITE_TIGER" style="--card-color: #f77f00;">
+          <canvas class="char-avatar-canvas" id="canvas-card-WHITE_TIGER"></canvas>
+          <div class="char-name-kr">백호 (白虎)</div>
+          <div class="char-title">뇌전 백호도투</div>
+          <div class="char-tagline">묵직한 대도와 벼락의 힘, 가드를 부수는 지진타격</div>
+          <div class="stat-group">
+            <div class="stat-row"><span>속도 (SPD)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 50%;"></div></div></div>
+            <div class="stat-row"><span>공격 (ATK)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 100%;"></div></div></div>
+            <div class="stat-row"><span>사거리 (RNG)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 80%;"></div></div></div>
+            <div class="stat-row"><span>방어 (DEF)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 85%;"></div></div></div>
+          </div>
+        </div>
+
+        <!-- 3. 주작 -->
+        <div class="char-card" data-char="VERMILION_BIRD" style="--card-color: #e63946;">
+          <canvas class="char-avatar-canvas" id="canvas-card-VERMILION_BIRD"></canvas>
+          <div class="char-name-kr">주작 (朱雀)</div>
+          <div class="char-title">화무 주작비선</div>
+          <div class="char-tagline">화려한 깃털 옷과 철선, 공중 2단 점프와 불꽃 탄막</div>
+          <div class="stat-group">
+            <div class="stat-row"><span>속도 (SPD)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 85%;"></div></div></div>
+            <div class="stat-row"><span>공격 (ATK)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 70%;"></div></div></div>
+            <div class="stat-row"><span>사거리 (RNG)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 90%;"></div></div></div>
+            <div class="stat-row"><span>방어 (DEF)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 45%;"></div></div></div>
+          </div>
+        </div>
+
+        <!-- 4. 현무 -->
+        <div class="char-card" data-char="BLACK_TORTOISE" style="--card-color: #212529;">
+          <canvas class="char-avatar-canvas" id="canvas-card-BLACK_TORTOISE"></canvas>
+          <div class="char-name-kr">현무 (玄武)</div>
+          <div class="char-title">현무 흑도사</div>
+          <div class="char-tagline">사슬낫의 중거리 견인 및 철벽의 결계 카운터 도술</div>
+          <div class="stat-group">
+            <div class="stat-row"><span>속도 (SPD)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 45%;"></div></div></div>
+            <div class="stat-row"><span>공격 (ATK)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 75%;"></div></div></div>
+            <div class="stat-row"><span>사거리 (RNG)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 100%;"></div></div></div>
+            <div class="stat-row"><span>방어 (DEF)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 95%;"></div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 하단 조작키 가이드 및 버튼 -->
+      <div class="select-footer">
+        <div class="controls-preview">
+          <div><strong>1P 조작키 가이드 (메이플풍 3단 콤보):</strong></div>
+          <div>
+            <span class="key-pill">A</span><span class="key-pill">D</span> 이동 · 
+            <span class="key-pill">W</span> 점프 (주작 2단점프) · 
+            <span class="key-pill">S</span> 숙이기 / 방어 · 
+            <span class="key-pill">J</span> 3단 콤보 (1타 찌르기 → 2타 회전 횡베기 → 3타 도약 강공격) · 
+            <span class="key-pill">K</span> 특수 스킬 · 
+            <span class="key-pill">L</span> 풀스크린 궁극기 (SP 100%)
+          </div>
+        </div>
+
+        <!-- 액션 버튼 -->
+        <div class="room-actions">
+          <button class="btn-wuxia" id="btn-practice-mode">연습 모드 (vs AI)</button>
+          <button class="btn-wuxia" id="btn-join-modal">방 참가하기</button>
+          <button class="btn-wuxia primary" id="btn-create-room">방 만들기 (P2P)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 모달 1: 방 만들기 (Host) -->
+    <div id="modal-create-room" class="modal-overlay">
+      <div class="modal-content">
+        <h3 class="modal-title">대전 방 생성 완료</h3>
+        <p class="modal-desc">아래의 6자리 방 코드를 복사하여 상대방에게 알려주세요.<br>상대방이 접속하면 대전이 시작됩니다.</p>
+        <div class="room-code-display" id="display-room-code">------</div>
+        <div class="status-waiting">
+          <span style="animation: spin 1s infinite linear; display:inline-block;">⌛</span>
+          상대방의 참가를 기다리는 중...
+        </div>
+        <div class="result-buttons" style="justify-content: center;">
+          <button class="btn-wuxia" id="btn-copy-code">코드 복사</button>
+          <button class="btn-wuxia" id="btn-cancel-create">취소</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 모달 2: 방 참가하기 (Guest) -->
+    <div id="modal-join-room" class="modal-overlay">
+      <div class="modal-content">
+        <h3 class="modal-title">대전 방 참가</h3>
+        <p class="modal-desc">전달받은 6자리 방 코드를 입력하세요.</p>
+        <input type="text" id="input-join-code" class="room-code-input" maxlength="6" placeholder="A7X9P2">
+        <div id="join-status-text" class="status-waiting"></div>
+        <div class="result-buttons" style="justify-content: center;">
+          <button class="btn-wuxia primary" id="btn-confirm-join">참가하기</button>
+          <button class="btn-wuxia" id="btn-cancel-join">취소</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 대전 결과 화면 (승리/패배) -->
+    <div id="result-screen">
+      <h2 class="victory-title" id="victory-title">승리 (VICTORY)</h2>
+      <p class="victory-subtitle" id="victory-subtitle">청룡이 무림의 패자가 되었습니다!</p>
+      <div class="result-buttons">
+        <button class="btn-wuxia primary" id="btn-rematch">다시 대전</button>
+        <button class="btn-wuxia" id="btn-to-select">캐릭터 선택으로</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================
+       게임 엔진 스크립트 (INLINED JAVASCRIPT)
+  ======================================================== -->
+  <script>
+    /* =====================================================
+       0. BROWSER COMPATIBILITY POLYFILL (ctx.roundRect)
+    ===================================================== */
+    if (!CanvasRenderingContext2D.prototype.roundRect) {
+      CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, radii) {
+        if (!radii) radii = 0;
+        let r = typeof radii === 'number' ? radii : (radii[0] || 0);
+        r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+        this.beginPath();
+        this.moveTo(x + r, y);
+        this.arcTo(x + w, y, x + w, y + h, r);
+        this.arcTo(x + w, y + h, x, y + h, r);
+        this.arcTo(x, y + h, x, y, r);
+        this.arcTo(x, y, x + w, y, r);
+        this.closePath();
+        return this;
+      };
+    }
+
+    /* =====================================================
+       A. CONSTANTS & SYSTEM CONFIGURATION
+    ===================================================== */
+    const SF = {
+      WIDTH: 1280,
+      HEIGHT: 720,
+      FLOOR_Y: 580,
+      ARENA_LEFT: 80,
+      ARENA_RIGHT: 1200,
+      GRAVITY: 0.85,
+      MAX_FALL_SPEED: 18,
+      ROUND_TIME: 99,
+
+      SEASONS: {
+        SPRING: {
+          id: 'SPRING', name: '봄 · 만화방창 (滿花方暢)',
+          hanji: '#f6f1e5', wash: 'rgba(235, 215, 205, 0.45)', mist: '#e8d5c4',
+          mountainWash: '#3a444a', mountainLight: 'rgba(58, 68, 74, 0.25)',
+          leaves: '#e27396', willow: '#588157', gateStone: '#4a443b'
+        },
+        SUMMER: {
+          id: 'SUMMER', name: '여름 · 청록농음 (靑綠濃陰)',
+          hanji: '#f0f5ec', wash: 'rgba(180, 220, 195, 0.4)', mist: '#c8e0d0',
+          mountainWash: '#283618', mountainLight: 'rgba(40, 54, 24, 0.25)',
+          leaves: '#606c38', willow: '#2d6a4f', gateStone: '#3d4035'
+        },
+        AUTUMN: {
+          id: 'AUTUMN', name: '가을 · 만홍단풍 (滿紅丹楓)',
+          hanji: '#f9f1e0', wash: 'rgba(230, 180, 150, 0.4)', mist: '#eed4be',
+          mountainWash: '#5c3a21', mountainLight: 'rgba(92, 58, 33, 0.25)',
+          leaves: '#bc4749', willow: '#c46210', gateStone: '#4d3d34'
+        },
+        WINTER: {
+          id: 'WINTER', name: '겨울 · 백설한산 (白雪寒山)',
+          hanji: '#edf2f7', wash: 'rgba(200, 215, 230, 0.45)', mist: '#d3e0ea',
+          mountainWash: '#1b263b', mountainLight: 'rgba(27, 38, 59, 0.25)',
+          leaves: '#ffffff', willow: '#415a77', gateStone: '#303846'
+        }
+      },
+
+      CHARACTERS: {
+        BLUE_DRAGON: {
+          id: 'BLUE_DRAGON', nameKr: '청룡', title: '질풍 청룡검객', avatar: '龍',
+          color: '#0096c7', robe: '#0077b6', sash: '#90e0ef', skin: '#fed8b1', hair: '#1b1b2f',
+          speed: 6.8, jump: -17.5, maxHp: 1000, defense: 0.95, canDoubleJump: false,
+          lightDmg: 38, spinDmg: 48, heavyDmg: 95, weapon: 'SWORD'
+        },
+        WHITE_TIGER: {
+          id: 'WHITE_TIGER', nameKr: '백호', title: '뇌전 백호도투', avatar: '虎',
+          color: '#f77f00', robe: '#4a3b32', sash: '#ffd166', skin: '#fed0bb', hair: '#f8f9fa',
+          speed: 5.2, jump: -16.2, maxHp: 1150, defense: 0.85, canDoubleJump: false,
+          lightDmg: 48, spinDmg: 62, heavyDmg: 135, weapon: 'AXE'
+        },
+        VERMILION_BIRD: {
+          id: 'VERMILION_BIRD', nameKr: '주작', title: '화무 주작비선', avatar: '雀',
+          color: '#e63946', robe: '#9b2226', sash: '#f4a261', skin: '#fceade', hair: '#3a0ca3',
+          speed: 6.4, jump: -16.8, maxHp: 900, defense: 1.0, canDoubleJump: true,
+          lightDmg: 40, spinDmg: 52, heavyDmg: 90, weapon: 'FAN'
+        },
+        BLACK_TORTOISE: {
+          id: 'BLACK_TORTOISE', nameKr: '현무', title: '현무 흑도사', avatar: '武',
+          color: '#212529', robe: '#14213d', sash: '#457b9d', skin: '#ecd1b4', hair: '#0b090a',
+          speed: 4.8, jump: -15.8, maxHp: 1200, defense: 0.80, canDoubleJump: false,
+          lightDmg: 44, spinDmg: 56, heavyDmg: 85, weapon: 'CHAIN'
+        }
+      }
+    };
+
+    /* =====================================================
+       B. WEB AUDIO PROCEDURAL SOUND ENGINE
+    ===================================================== */
+    const Sound = {
+      ctx: null,
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      },
+      playTone(freq, type, duration, gainStart = 0.25, gainEnd = 0.01) {
+        if (!this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(gainStart, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(gainEnd, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch (e) {}
+      },
+      playNoise(duration, gainStart = 0.3) {
+        if (!this.ctx) return;
+        try {
+          const bufferSize = this.ctx.sampleRate * duration;
+          const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = buffer;
+          const gain = this.ctx.createGain();
+          gain.gain.setValueAtTime(gainStart, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+          noise.connect(gain);
+          gain.connect(this.ctx.destination);
+          noise.start();
+        } catch (e) {}
+      },
+      jump() { this.playTone(320, 'sine', 0.15, 0.2, 0.01); },
+      thrust() {
+        this.playTone(450, 'triangle', 0.12, 0.25, 0.01);
+        this.playNoise(0.08, 0.15);
+      },
+      spin() {
+        if (!this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(260, this.ctx.currentTime);
+          osc.frequency.linearRampToValueAtTime(520, this.ctx.currentTime + 0.18);
+          gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.2);
+        } catch(e) {}
+      },
+      slam() {
+        this.playTone(120, 'sine', 0.3, 0.4, 0.01);
+        this.playNoise(0.25, 0.35);
+      },
+      special() {
+        this.playTone(550, 'square', 0.25, 0.25, 0.01);
+        this.playNoise(0.18, 0.2);
+      },
+      ultimate() {
+        this.playTone(80, 'sawtooth', 0.8, 0.5, 0.01);
+        this.playNoise(0.6, 0.5);
+      },
+      hit(heavy = false) {
+        if (heavy) {
+          this.playTone(110, 'triangle', 0.22, 0.4, 0.01);
+          this.playNoise(0.2, 0.35);
+        } else {
+          this.playTone(280, 'square', 0.1, 0.2, 0.01);
+          this.playNoise(0.08, 0.15);
+        }
+      },
+      guard() {
+        this.playTone(800, 'triangle', 0.12, 0.3, 0.01);
+      }
+    };
+
+    /* =====================================================
+       C. INPUT MANAGER (UNIFIED 1P CONTROLS)
+    ===================================================== */
+    const Input = {
+      keys: {},
+      justPressed: {},
+      init() {
+        window.addEventListener('keydown', (e) => {
+          Sound.init();
+          const k = e.key.toLowerCase();
+          if (!this.keys[k]) this.justPressed[k] = true;
+          this.keys[k] = true;
+          if (['w','a','s','d','j','k','l',' '].includes(k)) e.preventDefault();
+        });
+        window.addEventListener('keyup', (e) => {
+          this.keys[e.key.toLowerCase()] = false;
+        });
+      },
+      isDown(key) { return !!this.keys[key.toLowerCase()]; },
+      isJustPressed(key) {
+        const k = key.toLowerCase();
+        if (this.justPressed[k]) {
+          this.justPressed[k] = false;
+          return true;
+        }
+        return false;
+      },
+      clear() { this.justPressed = {}; }
+    };
+
+    /* =====================================================
+       D. JOSEON STAGE RENDERER (수묵담채화 한지 배경)
+    ===================================================== */
+    class JoseonStageRenderer {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.season = SF.SEASONS.SPRING;
+        this.time = 0;
+        this.willowAngle = 0;
+        this.particles = [];
+        this.initWeatherParticles();
+      }
+
+      setSeason(seasonKey) {
+        this.season = SF.SEASONS[seasonKey] || SF.SEASONS.SPRING;
+        this.initWeatherParticles();
+      }
+
+      initWeatherParticles() {
+        this.particles = [];
+        const count = 70;
+        for (let i = 0; i < count; i++) {
+          this.particles.push({
+            x: Math.random() * SF.WIDTH,
+            y: Math.random() * SF.HEIGHT,
+            size: Math.random() * 5 + 3,
+            vx: (Math.random() - 0.3) * 2.2,
+            vy: Math.random() * 1.8 + 1.2,
+            rot: Math.random() * Math.PI * 2,
+            vRot: (Math.random() - 0.5) * 0.06,
+            alpha: Math.random() * 0.7 + 0.3
+          });
+        }
+      }
+
+      update() {
+        this.time += 0.025;
+        this.willowAngle = Math.sin(this.time * 1.4) * 0.12;
+
+        for (let p of this.particles) {
+          p.x += p.vx + Math.sin(this.time + p.y * 0.01) * 0.5;
+          p.y += p.vy;
+          p.rot += p.vRot;
+
+          if (p.y > SF.HEIGHT + 20) {
+            p.y = -20;
+            p.x = Math.random() * SF.WIDTH;
+          }
+          if (p.x < -30) p.x = SF.WIDTH + 30;
+          if (p.x > SF.WIDTH + 30) p.x = -30;
+        }
+      }
+
+      render() {
+        const ctx = this.ctx;
+        ctx.save();
+
+        // 1. 한지 바탕색
+        ctx.fillStyle = this.season.hanji;
+        ctx.fillRect(0, 0, SF.WIDTH, SF.HEIGHT);
+
+        // 2. 한지 닥종이 질감 (미세한 섬유 선)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.025)';
+        for (let i = 0; i < 40; i++) {
+          const fx = ((i * 137.5) % SF.WIDTH);
+          const fy = ((i * 219.3) % SF.HEIGHT);
+          ctx.fillRect(fx, fy, 40, 1.5);
+        }
+
+        // 3. 원경: 먹 번짐 조선 산수화 연봉 (Far Mountains)
+        this.drawMountains(ctx);
+
+        // 4. 중경: 웅장한 조선 성문(홍예문 虹霓門) 및 기와 가옥
+        this.drawFortressGateAndHanok(ctx);
+
+        // 5. 근경: 바닥 무대 (아레나 지면)
+        this.drawArenaFloor(ctx);
+
+        // 6. 근경 장식: 바람에 흔들리는 능수버들가지
+        this.drawWillowBranches(ctx);
+
+        // 7. 계절별 날씨 파티클 (벚꽃 / 반딧불이 / 단풍 / 함박눈)
+        this.drawWeatherParticles(ctx);
+
+        ctx.restore();
+      }
+
+      drawMountains(ctx) {
+        // 원경 1: 은은한 먹선 산맥
+        ctx.fillStyle = this.season.mountainLight;
+        ctx.beginPath();
+        ctx.moveTo(0, 420);
+        ctx.bezierCurveTo(240, 260, 480, 340, 680, 280);
+        ctx.bezierCurveTo(880, 220, 1080, 320, SF.WIDTH, 290);
+        ctx.lineTo(SF.WIDTH, SF.HEIGHT);
+        ctx.lineTo(0, SF.HEIGHT);
+        ctx.closePath();
+        ctx.fill();
+
+        // 원경 2: 먹 번짐 중첩 산맥
+        ctx.fillStyle = this.season.wash;
+        ctx.beginPath();
+        ctx.moveTo(0, 460);
+        ctx.bezierCurveTo(180, 360, 360, 430, 560, 370);
+        ctx.bezierCurveTo(760, 310, 990, 410, SF.WIDTH, 360);
+        ctx.lineTo(SF.WIDTH, SF.HEIGHT);
+        ctx.lineTo(0, SF.HEIGHT);
+        ctx.closePath();
+        ctx.fill();
+
+        // 아침 안개(운해) 그라데이션
+        const fogGrad = ctx.createLinearGradient(0, 350, 0, 520);
+        fogGrad.addColorStop(0, 'rgba(255,255,255,0)');
+        fogGrad.addColorStop(1, this.season.mist);
+        ctx.fillStyle = fogGrad;
+        ctx.fillRect(0, 350, SF.WIDTH, 170);
+      }
+
+      drawFortressGateAndHanok(ctx) {
+        ctx.save();
+        const stoneColor = this.season.gateStone;
+
+        // 좌측 한옥 정자/누각 (수묵 먹선풍)
+        ctx.strokeStyle = '#222';
+        ctx.fillStyle = '#2f2c27';
+        ctx.lineWidth = 3;
+
+        // 정자 팔작지붕 곡선
+        ctx.beginPath();
+        ctx.moveTo(80, 420);
+        ctx.quadraticCurveTo(170, 375, 260, 420);
+        ctx.lineTo(250, 435);
+        ctx.quadraticCurveTo(170, 400, 90, 435);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 정자 기둥
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(110, 435); ctx.lineTo(110, 550);
+        ctx.moveTo(170, 420); ctx.lineTo(170, 550);
+        ctx.moveTo(230, 435); ctx.lineTo(230, 550);
+        ctx.stroke();
+
+        // 중앙 성벽 석축 베이스
+        const gateX = 520;
+        const gateY = 340;
+        const gateW = 240;
+        const gateH = 220;
+
+        ctx.fillStyle = stoneColor;
+        ctx.strokeStyle = '#181512';
+        ctx.lineWidth = 4;
+        ctx.fillRect(gateX, gateY + 90, gateW, gateH - 90);
+        ctx.strokeRect(gateX, gateY + 90, gateW, gateH - 90);
+
+        // 홍예문 (무지개 아치문)
+        ctx.fillStyle = '#161412';
+        ctx.beginPath();
+        ctx.arc(gateX + gateW / 2, gateY + gateH, 55, Math.PI, 0, false);
+        ctx.fill();
+        ctx.stroke();
+
+        // 성문 위 누각 2층 팔작 기와지붕
+        ctx.fillStyle = '#23201d';
+        ctx.beginPath();
+        ctx.moveTo(gateX - 35, gateY + 90);
+        ctx.quadraticCurveTo(gateX + gateW / 2, gateY + 45, gateX + gateW + 35, gateY + 90);
+        ctx.lineTo(gateX + gateW + 20, gateY + 105);
+        ctx.quadraticCurveTo(gateX + gateW / 2, gateY + 70, gateX - 20, gateY + 105);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 성문 현판
+        ctx.fillStyle = '#111';
+        ctx.fillRect(gateX + gateW / 2 - 45, gateY + 115, 90, 24);
+        ctx.strokeStyle = '#c59b27';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(gateX + gateW / 2 - 45, gateY + 115, 90, 24);
+
+        ctx.fillStyle = '#f5efe2';
+        ctx.font = 'bold 12px "Noto Serif KR", serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('四方門 (사방문)', gateX + gateW / 2, gateY + 132);
+
+        ctx.restore();
+      }
+
+      drawArenaFloor(ctx) {
+        ctx.save();
+        // 무림 연무장 바닥 (먹선 경계 & 고풍스러운 흙돌 지면)
+        const floorGrad = ctx.createLinearGradient(0, SF.FLOOR_Y, 0, SF.HEIGHT);
+        floorGrad.addColorStop(0, '#544738');
+        floorGrad.addColorStop(0.2, '#382e23');
+        floorGrad.addColorStop(1, '#1e1812');
+        ctx.fillStyle = floorGrad;
+        ctx.fillRect(0, SF.FLOOR_Y, SF.WIDTH, SF.HEIGHT - SF.FLOOR_Y);
+
+        // 지면 먹선 굵은 붓터치 테두리
+        ctx.strokeStyle = '#12141a';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(0, SF.FLOOR_Y);
+        for (let x = 0; x <= SF.WIDTH; x += 80) {
+          ctx.lineTo(x, SF.FLOOR_Y + Math.sin(x * 0.05) * 2.5);
+        }
+        ctx.stroke();
+
+        // 무대 좌우 결계 깃대/석등
+        this.drawArenaMarker(ctx, SF.ARENA_LEFT, SF.FLOOR_Y);
+        this.drawArenaMarker(ctx, SF.ARENA_RIGHT, SF.FLOOR_Y);
+        ctx.restore();
+      }
+
+      drawArenaMarker(ctx, x, y) {
+        ctx.save();
+        ctx.fillStyle = '#2c251d';
+        ctx.strokeStyle = '#12100d';
+        ctx.lineWidth = 3;
+
+        // 석등 기단
+        ctx.fillRect(x - 14, y - 55, 28, 55);
+        ctx.strokeRect(x - 14, y - 55, 28, 55);
+
+        // 석등 화사석 (불빛)
+        ctx.fillStyle = '#f4a261';
+        ctx.beginPath();
+        ctx.arc(x, y - 35, 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 석등 갓
+        ctx.fillStyle = '#1c1712';
+        ctx.beginPath();
+        ctx.moveTo(x - 22, y - 55);
+        ctx.lineTo(x + 22, y - 55);
+        ctx.lineTo(x, y - 72);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      drawWillowBranches(ctx) {
+        ctx.save();
+        ctx.strokeStyle = '#1c1713';
+        ctx.lineWidth = 5;
+        ctx.fillStyle = this.season.willow;
+
+        // 좌측 상단 능수버들 가지
+        ctx.beginPath();
+        ctx.moveTo(-10, -10);
+        ctx.quadraticCurveTo(120, 80, 220 + Math.sin(this.time) * 15, 180);
+        ctx.stroke();
+
+        // 늘어지는 버들 잎줄기들
+        for (let i = 0; i < 6; i++) {
+          const bx = 60 + i * 28;
+          const by = 40 + i * 22;
+          const sw = Math.sin(this.time * 1.5 + i) * 18;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(bx, by);
+          ctx.quadraticCurveTo(bx + sw * 0.5, by + 70, bx + sw, by + 140);
+          ctx.stroke();
+
+          // 잎사귀들
+          for (let j = 0; j < 4; j++) {
+            const lx = bx + (sw * 0.25 * j);
+            const ly = by + 25 * j + 15;
+            ctx.beginPath();
+            ctx.ellipse(lx, ly, 4, 8, 0.4 + this.willowAngle, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+
+      drawWeatherParticles(ctx) {
+        ctx.save();
+        for (let p of this.particles) {
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.globalAlpha = p.alpha;
+
+          if (this.season.id === 'SPRING') {
+            // 봄: 벚꽃 꽃잎 (Pink Blossom)
+            ctx.fillStyle = '#f28482';
+            ctx.beginPath();
+            ctx.moveTo(0, -p.size);
+            ctx.quadraticCurveTo(p.size, 0, 0, p.size);
+            ctx.quadraticCurveTo(-p.size, 0, 0, -p.size);
+            ctx.fill();
+          } else if (this.season.id === 'SUMMER') {
+            // 여름: 반딧불이 (Glow Firefly)
+            ctx.fillStyle = '#a7c957';
+            ctx.shadowColor = '#a7c957';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (this.season.id === 'AUTUMN') {
+            // 가을: 단풍잎 (Maple Leaf)
+            ctx.fillStyle = this.season.leaves;
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size * 0.8, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            // 겨울: 함박눈 (Snowflake)
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = 'rgba(255,255,255,0.8)';
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size * 0.9, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+        ctx.restore();
+      }
+    }
+
+    /* =====================================================
+       E. MAPLE-STYLE SD CHARACTER RENDERER & LOGIC
+    ===================================================== */
+    class MapleSDCharacter {
+      constructor(config, x, facingRight = true) {
+        this.cfg = config;
+        this.x = x;
+        this.y = SF.FLOOR_Y;
+        this.vx = 0;
+        this.vy = 0;
+        this.facingRight = facingRight;
+        this.hp = config.maxHp;
+        this.maxHp = config.maxHp;
+        this.sp = 0;
+        this.maxSp = 100;
+
+        // 상태
+        this.isGrounded = true;
+        this.isGuarding = false;
+        this.isAttacking = false;
+        this.isHit = false;
+        this.isDead = false;
+        this.doubleJumped = false;
+
+        // 3단 콤보 시스템
+        this.comboStep = 0; // 0: None, 1: 찌르기, 2: 회전 횡베기, 3: 피니시 점프찍기
+        this.comboTimer = 0; // 콤보 입력 유효시간 (0.85초)
+        this.attackProgress = 0; // 공격 프레임 진행도 (0 ~ 1)
+        this.attackDuration = 0.25;
+
+        // 모션 타이머
+        this.animTime = Math.random() * 10;
+        this.hitStunTimer = 0;
+
+        // 타격 박스 (Hitbox)
+        this.hitbox = null;
+      }
+
+      update(dt) {
+        this.animTime += dt * 6;
+
+        // 피격 경직 처리
+        if (this.hitStunTimer > 0) {
+          this.hitStunTimer -= dt;
+          if (this.hitStunTimer <= 0) {
+            this.isHit = false;
+          }
+        }
+
+        // 콤보 타이머 카운트다운 (시간 지나면 1타로 자동 리셋)
+        if (this.comboTimer > 0) {
+          this.comboTimer -= dt;
+          if (this.comboTimer <= 0) {
+            this.comboStep = 0;
+          }
+        }
+
+        // 공격 애니메이션 진행
+        if (this.isAttacking) {
+          this.attackProgress += dt / this.attackDuration;
+          if (this.attackProgress >= 1.0) {
+            this.isAttacking = false;
+            this.attackProgress = 0;
+            this.hitbox = null;
+          }
+        }
+
+        // 물리 엔진 (중력 & 이동)
+        this.vy += SF.GRAVITY;
+        if (this.vy > SF.MAX_FALL_SPEED) this.vy = SF.MAX_FALL_SPEED;
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // 지면 충돌
+        if (this.y >= SF.FLOOR_Y) {
+          this.y = SF.FLOOR_Y;
+          this.vy = 0;
+          this.isGrounded = true;
+          this.doubleJumped = false;
+        } else {
+          this.isGrounded = false;
+        }
+
+        // 아레나 벽 충돌
+        if (this.x < SF.ARENA_LEFT + 30) this.x = SF.ARENA_LEFT + 30;
+        if (this.x > SF.ARENA_RIGHT - 30) this.x = SF.ARENA_RIGHT - 30;
+
+        // 마찰력
+        this.vx *= 0.82;
+        if (Math.abs(this.vx) < 0.1) this.vx = 0;
+      }
+
+      move(dir) {
+        if (this.isAttacking || this.isHit || this.isGuarding) return;
+        this.vx = dir * this.cfg.speed;
+        this.facingRight = dir > 0;
+      }
+
+      jump() {
+        if (this.isHit || this.isGuarding) return;
+        if (this.isGrounded) {
+          this.vy = this.cfg.jump;
+          this.isGrounded = false;
+          Sound.jump();
+        } else if (this.cfg.canDoubleJump && !this.doubleJumped) {
+          this.vy = this.cfg.jump * 0.9;
+          this.doubleJumped = true;
+          Sound.jump();
+        }
+      }
+
+      guard(active) {
+        if (this.isAttacking || this.isHit) return;
+        this.isGuarding = active;
+        if (active) this.vx = 0;
+      }
+
+      // J키 3단 콤보 공격 발동!
+      attackCombo(vfxMgr) {
+        if (this.isAttacking || this.isHit || this.isGuarding) return;
+
+        // 콤보 단계 전진 (1 -> 2 -> 3 -> 1)
+        if (this.comboStep === 0 || this.comboTimer <= 0) {
+          this.comboStep = 1;
+        } else if (this.comboStep === 1) {
+          this.comboStep = 2;
+        } else if (this.comboStep === 2) {
+          this.comboStep = 3;
+        } else {
+          this.comboStep = 1;
+        }
+
+        this.comboTimer = 0.85; // 0.85초 안에 다음 타수 입력 가능
+        this.isAttacking = true;
+        this.attackProgress = 0;
+
+        const forward = this.facingRight ? 1 : -1;
+
+        if (this.comboStep === 1) {
+          // [1타]: 전방 쾌속 찌르기 (빠르고 날카로운 먹선)
+          this.attackDuration = 0.22;
+          this.vx = forward * 5.0; // 전방 순간 찌르기 대시
+          Sound.thrust();
+          this.createHitbox(this.cfg.lightDmg, 75, 45, false, 'THRUST');
+          vfxMgr.addBrushTrail(this.x, this.y - 45, forward, 'THRUST', this.cfg.color);
+        } else if (this.comboStep === 2) {
+          // [2타]: 360도 회전 횡베기/상승베기 (호를 그리는 먹선 궤적)
+          this.attackDuration = 0.28;
+          this.vx = forward * 6.5;
+          Sound.spin();
+          this.createHitbox(this.cfg.spinDmg, 95, 60, false, 'SPIN');
+          vfxMgr.addBrushTrail(this.x, this.y - 50, forward, 'SPIN', this.cfg.color);
+        } else if (this.comboStep === 3) {
+          // [3타]: 피니시 도약 내리찍기 (강력한 기운과 수직 낙하 충격파)
+          this.attackDuration = 0.38;
+          this.vy = -7.5; // 살짝 공중 도약 후 내리찍기
+          this.vx = forward * 7.5;
+          Sound.slam();
+          this.createHitbox(this.cfg.heavyDmg, 115, 80, true, 'SLAM');
+          vfxMgr.addBrushTrail(this.x, this.y - 60, forward, 'SLAM', this.cfg.color);
+          vfxMgr.addInkShockwave(this.x + forward * 60, SF.FLOOR_Y, this.cfg.color);
+        }
+      }
+
+      // K키: 무기 특수 스킬
+      specialSkill(vfxMgr) {
+        if (this.isAttacking || this.isHit || this.isGuarding) return;
+        this.isAttacking = true;
+        this.attackProgress = 0;
+        this.attackDuration = 0.35;
+        const forward = this.facingRight ? 1 : -1;
+        Sound.special();
+
+        if (this.cfg.id === 'BLUE_DRAGON') {
+          // 청룡: 전방 돌진 풍압 검기 (질풍참)
+          this.vx = forward * 14;
+          this.createHitbox(85, 120, 50, true, 'GALE');
+          vfxMgr.addWindSlash(this.x, this.y - 45, forward);
+        } else if (this.cfg.id === 'WHITE_TIGER') {
+          // 백호: 지면 굉음 대도 강타 (가드 파괴 지진파)
+          this.vx = forward * 4;
+          this.createHitbox(110, 130, 80, true, 'QUAKE');
+          vfxMgr.addEarthQuake(this.x + forward * 70, SF.FLOOR_Y);
+        } else if (this.cfg.id === 'VERMILION_BIRD') {
+          // 주작: 철선 화염 탄환 발사
+          this.createHitbox(75, 160, 50, false, 'FIRE');
+          vfxMgr.addFireProjectile(this.x + forward * 40, this.y - 45, forward);
+        } else if (this.cfg.id === 'BLACK_TORTOISE') {
+          // 현무: 사슬낫 중거리 견인 결계
+          this.createHitbox(70, 150, 60, false, 'CHAIN');
+          vfxMgr.addChainPull(this.x, this.y - 45, forward);
+        }
+      }
+
+      createHitbox(damage, width, height, isHeavy, type) {
+        const forward = this.facingRight ? 1 : -1;
+        this.hitbox = {
+          x: this.facingRight ? this.x + 10 : this.x - width - 10,
+          y: this.y - height - 10,
+          w: width,
+          h: height,
+          damage: damage,
+          isHeavy: isHeavy,
+          type: type,
+          owner: this
+        };
+      }
+
+      takeDamage(amount, isHeavy, attackerX, vfxMgr) {
+        if (this.isDead) return;
+
+        if (this.isGuarding) {
+          // 방어 시 대미지 75% 감소
+          amount *= 0.25;
+          Sound.guard();
+          vfxMgr.addGuardSparks(this.x, this.y - 45);
+        } else {
+          Sound.hit(isHeavy);
+          this.isHit = true;
+          this.hitStunTimer = isHeavy ? 0.38 : 0.2;
+          // 피격 넉백
+          const pushDir = this.x > attackerX ? 1 : -1;
+          this.vx = pushDir * (isHeavy ? 10.5 : 5.0);
+          if (isHeavy) this.vy = -6;
+          // 먹물 튀김 VFX
+          vfxMgr.addInkSplatter(this.x, this.y - 50, isHeavy ? 18 : 9, this.cfg.color);
+        }
+
+        this.hp -= Math.round(amount * this.cfg.defense);
+        // 피격 시 기력(SP) 충전
+        this.sp = Math.min(this.maxSp, this.sp + 14);
+
+        if (this.hp <= 0) {
+          this.hp = 0;
+          this.isDead = true;
+        }
+      }
+
+      // =========================================
+      // 메이플스토리 감성 SD 캐릭터 캔버스 렌더링
+      // =========================================
+      render(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        if (!this.facingRight) ctx.scale(-1, 1);
+
+        // 1. 발밑 그림자 (수묵 먹물 타원)
+        ctx.fillStyle = 'rgba(18, 20, 26, 0.35)';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 32, 9, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 바운스 애니메이션 (숨쉬기 & 걷기)
+        const breathe = Math.sin(this.animTime) * 2;
+        const runBounce = Math.abs(this.vx) > 0.5 ? Math.abs(Math.sin(this.animTime * 2)) * 5 : 0;
+        const bodyY = -28 - runBounce + breathe;
+
+        // 피격 시 점멸/흔들림
+        if (this.isHit) {
+          ctx.translate((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);
+        }
+
+        // 2. 도포 자락 & 몸통 (2.5등신 귀여운 실루엣)
+        this.drawSDBody(ctx, bodyY);
+
+        // 3. 머리, 얼굴, 메이플풍 초롱초롱한 눈망울 & 볼터치
+        this.drawSDHead(ctx, bodyY - 34);
+
+        // 4. 무기 및 3단 콤보 모션 손 렌더링
+        this.drawSDWeapon(ctx, bodyY);
+
+        // 5. 방어막 이펙트
+        if (this.isGuarding) {
+          this.drawGuardAura(ctx, bodyY);
+        }
+
+        ctx.restore();
+      }
+
+      drawSDBody(ctx, bodyY) {
+        ctx.save();
+        // 다리 / 신발 (짚신/버선)
+        ctx.fillStyle = '#222';
+        const walkLeg = Math.sin(this.animTime * 2) * 6;
+        ctx.beginPath();
+        ctx.roundRect(-14 - walkLeg * 0.5, bodyY + 18, 10, 10, 4);
+        ctx.roundRect(4 + walkLeg * 0.5, bodyY + 18, 10, 10, 4);
+        ctx.fill();
+
+        // 도포 치마자락
+        ctx.fillStyle = this.cfg.robe;
+        ctx.strokeStyle = '#12141a';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(-18, bodyY + 4);
+        ctx.lineTo(18, bodyY + 4);
+        ctx.lineTo(24, bodyY + 22);
+        ctx.lineTo(-24, bodyY + 22);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 몸통 상의 무복
+        ctx.fillStyle = this.cfg.robe;
+        ctx.beginPath();
+        ctx.roundRect(-15, bodyY - 10, 30, 20, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        // 허리 띠 (사슬 / 금실 허리대)
+        ctx.fillStyle = this.cfg.sash;
+        ctx.fillRect(-16, bodyY + 2, 32, 5);
+        ctx.strokeRect(-16, bodyY + 2, 32, 5);
+        ctx.restore();
+      }
+
+      drawSDHead(ctx, headY) {
+        ctx.save();
+        const headR = 25;
+
+        // 뒷머리 / 상투
+        ctx.fillStyle = this.cfg.hair;
+        ctx.beginPath();
+        ctx.arc(0, headY, headR + 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 뽀얀 SD 얼굴 피부
+        ctx.fillStyle = this.cfg.skin;
+        ctx.beginPath();
+        ctx.arc(0, headY + 3, headR - 1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 발그레한 핑크빛 볼터치 (메이플스토리 감성)
+        ctx.fillStyle = 'rgba(255, 130, 150, 0.45)';
+        ctx.beginPath();
+        ctx.ellipse(-13, headY + 7, 5, 3.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(13, headY + 7, 5, 3.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 앞머리 스타일
+        ctx.fillStyle = this.cfg.hair;
+        ctx.beginPath();
+        ctx.moveTo(-headR, headY - 4);
+        ctx.quadraticCurveTo(0, headY - 14, headR, headY - 4);
+        ctx.lineTo(headR, headY - 10);
+        ctx.lineTo(-headR, headY - 10);
+        ctx.closePath();
+        ctx.fill();
+
+        // 상투 / 비녀 장식
+        ctx.beginPath();
+        ctx.arc(0, headY - headR - 2, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = this.cfg.sash;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(-9, headY - headR - 2);
+        ctx.lineTo(9, headY - headR - 2);
+        ctx.stroke();
+
+        // 표정: 눈 & 입
+        if (this.isHit) {
+          // 피격 시 찡긋 감은 눈 (> <)
+          ctx.strokeStyle = '#222';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(-14, headY); ctx.lineTo(-8, headY + 4); ctx.lineTo(-14, headY + 8);
+          ctx.moveTo(14, headY); ctx.lineTo(8, headY + 4); ctx.lineTo(14, headY + 8);
+          ctx.stroke();
+        } else {
+          // 초롱초롱한 메이플풍 눈동자
+          const eyeOffset = this.facingRight ? 3 : -3;
+          // 좌측 눈
+          ctx.fillStyle = '#1a181b';
+          ctx.beginPath();
+          ctx.ellipse(-8 + eyeOffset, headY + 3, 4.5, 6.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // 좌측 눈 하이라이트 (빛망울)
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(-7 + eyeOffset, headY + 1, 2, 0, Math.PI * 2);
+          ctx.arc(-9 + eyeOffset, headY + 5, 1, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 우측 눈
+          ctx.fillStyle = '#1a181b';
+          ctx.beginPath();
+          ctx.ellipse(8 + eyeOffset, headY + 3, 4.5, 6.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // 우측 눈 하이라이트
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(9 + eyeOffset, headY + 1, 2, 0, Math.PI * 2);
+          ctx.arc(7 + eyeOffset, headY + 5, 1, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 미소 짓는 귀여운 입
+          ctx.strokeStyle = '#443';
+          ctx.lineWidth = 1.8;
+          ctx.beginPath();
+          ctx.arc(eyeOffset * 0.5, headY + 11, 3.5, 0, Math.PI);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      drawSDWeapon(ctx, bodyY) {
+        ctx.save();
+        let handX = 12;
+        let handY = bodyY;
+        let weaponRot = 0.2;
+
+        // 3단 콤보 공격 모션별 무기 각도 & 위치 변화
+        if (this.isAttacking) {
+          const prog = this.attackProgress;
+          if (this.comboStep === 1) {
+            // [1타]: 전방 쾌속 찌르기 (무기를 전방으로 쭉 뻗음)
+            handX = 26 + Math.sin(prog * Math.PI) * 16;
+            handY = bodyY - 2;
+            weaponRot = Math.PI / 2; // 수평 찌르기 각도
+          } else if (this.comboStep === 2) {
+            // [2타]: 회전 횡베기/상승베기 (호를 그리며 올려벰)
+            const angleSweep = -Math.PI * 0.4 + prog * Math.PI * 1.2;
+            handX = 18 + Math.cos(angleSweep) * 14;
+            handY = bodyY - Math.sin(angleSweep) * 16;
+            weaponRot = angleSweep;
+          } else if (this.comboStep === 3) {
+            // [3타]: 피니시 도약 내리찍기 (위에서 아래로 수직 강타)
+            const slamAngle = -Math.PI * 0.6 + prog * Math.PI * 1.4;
+            handX = 20 + Math.cos(slamAngle) * 12;
+            handY = bodyY + Math.sin(slamAngle) * 18;
+            weaponRot = slamAngle;
+          }
+        }
+
+        ctx.translate(handX, handY);
+        ctx.rotate(weaponRot);
+
+        // 손 (둥글고 귀여운 찹쌀떡 손)
+        ctx.fillStyle = this.cfg.skin;
+        ctx.beginPath();
+        ctx.arc(0, 0, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 무기 렌더링
+        if (this.cfg.weapon === 'SWORD') {
+          // 청룡의 장검
+          ctx.fillStyle = '#e0fbfc';
+          ctx.strokeStyle = '#0077b6';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(0, -3);
+          ctx.lineTo(46, -1);
+          ctx.lineTo(54, 0); // 칼끝
+          ctx.lineTo(46, 1);
+          ctx.lineTo(0, 3);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          // 검 코등이 & 술 장식
+          ctx.fillStyle = '#c59b27';
+          ctx.fillRect(-3, -6, 4, 12);
+        } else if (this.cfg.weapon === 'AXE') {
+          // 백호의 거대 대도 / 도끼
+          ctx.fillStyle = '#6c584c';
+          ctx.fillRect(-8, -3, 34, 6); // 자루
+          // 도끼날
+          ctx.fillStyle = '#d8d8d8';
+          ctx.strokeStyle = '#e7a048';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(26, -10, 24, 0.4, 2.7);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        } else if (this.cfg.weapon === 'FAN') {
+          // 주작의 화려한 접부채 (철선)
+          ctx.fillStyle = '#c92a2a';
+          ctx.strokeStyle = '#ffd166';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.arc(0, 0, 32, -0.6, 0.6);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          // 부채살 먹선
+          ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+          ctx.beginPath();
+          ctx.moveTo(0, 0); ctx.lineTo(26, -12);
+          ctx.moveTo(0, 0); ctx.lineTo(32, 0);
+          ctx.moveTo(0, 0); ctx.lineTo(26, 12);
+          ctx.stroke();
+        } else if (this.cfg.weapon === 'CHAIN') {
+          // 현무의 사슬낫
+          ctx.strokeStyle = '#7f8c8d';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(10, 0, 14, 0, Math.PI * 1.5);
+          ctx.stroke();
+          // 낫 칼날
+          ctx.fillStyle = '#34495e';
+          ctx.beginPath();
+          ctx.moveTo(10, -14);
+          ctx.quadraticCurveTo(34, -20, 42, -6);
+          ctx.lineTo(16, -8);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      drawGuardAura(ctx, bodyY) {
+        ctx.save();
+        ctx.strokeStyle = '#ffd166';
+        ctx.fillStyle = 'rgba(255, 209, 102, 0.18)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(12, bodyY, 44, -Math.PI * 0.45, Math.PI * 0.45);
+        ctx.stroke();
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    /* =====================================================
+       F. SUMI-E VFX & FULLSCREEN ULTIMATE ENGINE
+    ===================================================== */
+    class SumiEVFXManager {
+      constructor() {
+        this.trails = [];
+        this.splatters = [];
+        this.projectiles = [];
+        this.ultimates = [];
+        this.screenShake = 0;
+      }
+
+      // 붓터치 잔상 궤적 추가 (1타 찌르기 / 2타 회전베기 / 3타 슬램)
+      addBrushTrail(x, y, forward, type, color) {
+        this.trails.push({
+          x: x, y: y, forward: forward, type: type, color: color,
+          alpha: 0.9, life: 0.28, maxLife: 0.28
+        });
+      }
+
+      // 먹물 튀김 파티클
+      addInkSplatter(x, y, count, color) {
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const spd = Math.random() * 8 + 2;
+          this.splatters.push({
+            x: x, y: y,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd - 2,
+            size: Math.random() * 6 + 2,
+            alpha: 1.0,
+            color: Math.random() > 0.4 ? '#111418' : color
+          });
+        }
+      }
+
+      // 지면 먹물 충격파 (3타 피니시)
+      addInkShockwave(x, y, color) {
+        this.screenShake = 12;
+        this.trails.push({
+          x: x, y: y, forward: 1, type: 'WAVE', color: color,
+          alpha: 1.0, radius: 10, maxRadius: 110, life: 0.35, maxLife: 0.35
+        });
+      }
+
+      addGuardSparks(x, y) {
+        for (let i = 0; i < 8; i++) {
+          const angle = (Math.random() - 0.5) * Math.PI;
+          this.splatters.push({
+            x: x, y: y,
+            vx: Math.cos(angle) * 7,
+            vy: Math.sin(angle) * 7,
+            size: 3, alpha: 1.0, color: '#ffd166'
+          });
+        }
+      }
+
+      // K스킬 발사체/이펙트
+      addWindSlash(x, y, forward) {
+        this.projectiles.push({
+          x: x, y: y, vx: forward * 16, vy: 0,
+          w: 60, h: 40, damage: 85, type: 'WIND', life: 0.45, color: '#00b4d8'
+        });
+      }
+
+      addEarthQuake(x, y) {
+        this.screenShake = 18;
+        this.addInkSplatter(x, y, 25, '#f77f00');
+      }
+
+      addFireProjectile(x, y, forward) {
+        this.projectiles.push({
+          x: x, y: y, vx: forward * 12, vy: (Math.random() - 0.5) * 2,
+          w: 50, h: 30, damage: 80, type: 'FIRE', life: 0.6, color: '#e63946'
+        });
+      }
+
+      addChainPull(x, y, forward) {
+        this.screenShake = 8;
+        this.addInkShockwave(x + forward * 80, y, '#212529');
+      }
+
+      // 풀스크린 궁극기 시전 (L키)
+      triggerUltimate(charId, caster) {
+        Sound.ultimate();
+        this.screenShake = 30;
+        this.ultimates.push({
+          charId: charId,
+          caster: caster,
+          time: 0,
+          duration: 1.8,
+          stampText: charId === 'BLUE_DRAGON' ? '靑龍出海' :
+                     charId === 'WHITE_TIGER' ? '白虎轟雷' :
+                     charId === 'VERMILION_BIRD' ? '朱雀焚天' : '玄武怒濤'
+        });
+      }
+
+      update(dt) {
+        if (this.screenShake > 0) {
+          this.screenShake -= dt * 45;
+          if (this.screenShake < 0) this.screenShake = 0;
+        }
+
+        // 잔상 업데이트
+        for (let i = this.trails.length - 1; i >= 0; i--) {
+          const t = this.trails[i];
+          t.life -= dt;
+          t.alpha = t.life / t.maxLife;
+          if (t.type === 'WAVE') t.radius += dt * 300;
+          if (t.life <= 0) this.trails.splice(i, 1);
+        }
+
+        // 먹물 튀김 업데이트
+        for (let i = this.splatters.length - 1; i >= 0; i--) {
+          const s = this.splatters[i];
+          s.x += s.vx;
+          s.y += s.vy;
+          s.vy += 0.4;
+          s.alpha -= dt * 2.5;
+          if (s.alpha <= 0 || s.y > SF.FLOOR_Y + 10) this.splatters.splice(i, 1);
+        }
+
+        // 발사체 업데이트
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+          const p = this.projectiles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.life -= dt;
+          if (p.life <= 0 || p.x < 0 || p.x > SF.WIDTH) this.projectiles.splice(i, 1);
+        }
+
+        // 궁극기 업데이트
+        for (let i = this.ultimates.length - 1; i >= 0; i--) {
+          const u = this.ultimates[i];
+          u.time += dt;
+          if (u.time >= u.duration) this.ultimates.splice(i, 1);
+        }
+      }
+
+      render(ctx) {
+        ctx.save();
+
+        // 1. 붓터치 잔상 렌더링
+        for (let t of this.trails) {
+          ctx.save();
+          ctx.globalAlpha = t.alpha;
+          ctx.strokeStyle = t.color;
+          ctx.fillStyle = t.color;
+
+          if (t.type === 'THRUST') {
+            // [1타]: 직선 날카로운 먹선 궤적
+            ctx.lineWidth = 7;
+            ctx.beginPath();
+            ctx.moveTo(t.x, t.y);
+            ctx.lineTo(t.x + t.forward * 80, t.y);
+            ctx.stroke();
+          } else if (t.type === 'SPIN') {
+            // [2타]: 회전하는 반달 모양 먹물 붓터치
+            ctx.lineWidth = 14;
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, 45, 0, Math.PI * 1.3);
+            ctx.stroke();
+          } else if (t.type === 'SLAM') {
+            // [3타]: 수직 내리찍기 먹물 궤적
+            ctx.lineWidth = 18;
+            ctx.beginPath();
+            ctx.moveTo(t.x, t.y - 80);
+            ctx.lineTo(t.x + t.forward * 40, t.y + 40);
+            ctx.stroke();
+          } else if (t.type === 'WAVE') {
+            // 바닥 충격파 링
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.ellipse(t.x, t.y, t.radius, t.radius * 0.35, 0, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // 2. 먹물 튀김 렌더링
+        for (let s of this.splatters) {
+          ctx.save();
+          ctx.globalAlpha = s.alpha;
+          ctx.fillStyle = s.color;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // 3. 발사체 렌더링
+        for (let p of this.projectiles) {
+          ctx.save();
+          ctx.fillStyle = p.color;
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = 15;
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y, p.w * 0.5, p.h * 0.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // 4. 풀스크린 궁극기 연출 (화면 암전 + 한자 서예 낙관 + 화면 장악)
+        for (let u of this.ultimates) {
+          this.renderFullscreenUltimate(ctx, u);
+        }
+
+        ctx.restore();
+      }
+
+      renderFullscreenUltimate(ctx, u) {
+        ctx.save();
+        const progress = u.time / u.duration;
+
+        // 배경 암전 (수묵 먹물 번짐)
+        ctx.fillStyle = `rgba(10, 8, 6, ${Math.min(0.85, (1 - Math.abs(progress - 0.5) * 2))})`;
+        ctx.fillRect(0, 0, SF.WIDTH, SF.HEIGHT);
+
+        // 한자 서예 붉은 낙관 도장 표시
+        if (progress > 0.1 && progress < 0.85) {
+          ctx.save();
+          ctx.translate(SF.WIDTH / 2, 220);
+          const stampScale = progress < 0.25 ? 1.0 + (0.25 - progress) * 4 : 1.0;
+          ctx.scale(stampScale, stampScale);
+
+          // 붉은 인장 사각 박스
+          ctx.fillStyle = 'rgba(201, 42, 42, 0.9)';
+          ctx.fillRect(-140, -45, 280, 90);
+          ctx.strokeStyle = '#f5efe2';
+          ctx.lineWidth = 4;
+          ctx.strokeRect(-134, -39, 268, 78);
+
+          // 서예 폰트
+          ctx.fillStyle = '#f5efe2';
+          ctx.font = 'bold 38px "Noto Serif KR", serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(u.stampText, 0, 2);
+          ctx.restore();
+        }
+
+        // 사방신 캐릭터별 풀스크린 연출
+        if (u.charId === 'BLUE_DRAGON') {
+          // 청룡: 거대한 청룡 환영이 화면을 좌우로 가로지름
+          ctx.strokeStyle = 'rgba(0, 180, 216, 0.85)';
+          ctx.lineWidth = 35;
+          ctx.beginPath();
+          const dragonX = -100 + progress * (SF.WIDTH + 300);
+          ctx.moveTo(dragonX - 300, 360 + Math.sin(progress * 15) * 120);
+          ctx.quadraticCurveTo(dragonX - 100, 360 - Math.sin(progress * 15) * 120, dragonX, 360);
+          ctx.stroke();
+        } else if (u.charId === 'WHITE_TIGER') {
+          // 백호: 거대 영산 바위 낙하와 화면 전체 벼락
+          ctx.strokeStyle = '#ffd166';
+          ctx.lineWidth = 8;
+          for (let b = 0; b < 6; b++) {
+            ctx.beginPath();
+            ctx.moveTo(150 + b * 200, 0);
+            ctx.lineTo(180 + b * 200, 250);
+            ctx.lineTo(140 + b * 200, 420);
+            ctx.lineTo(200 + b * 200, SF.FLOOR_Y);
+            ctx.stroke();
+          }
+        } else if (u.charId === 'VERMILION_BIRD') {
+          // 주작: 하늘에서 쏟아지는 화염 유성우 폭격
+          ctx.fillStyle = '#e63946';
+          for (let m = 0; m < 14; m++) {
+            const mx = (m * 95 + progress * 400) % SF.WIDTH;
+            const my = (progress * 800 + m * 45) % SF.HEIGHT;
+            ctx.beginPath();
+            ctx.arc(mx, my, 18, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else if (u.charId === 'BLACK_TORTOISE') {
+          // 현무: 바닥에서 솟구쳐오르는 거대한 먹빛 해일
+          ctx.fillStyle = 'rgba(20, 33, 61, 0.75)';
+          ctx.beginPath();
+          ctx.moveTo(0, SF.HEIGHT);
+          for (let wx = 0; wx <= SF.WIDTH; wx += 60) {
+            ctx.lineTo(wx, SF.FLOOR_Y - 220 + Math.sin(wx * 0.02 + progress * 10) * 80);
+          }
+          ctx.lineTo(SF.WIDTH, SF.HEIGHT);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    /* =====================================================
+       G. PEERJS WEBRTC P2P NETWORK MANAGER
+    ===================================================== */
+    const Network = {
+      peer: null,
+      conn: null,
+      isHost: false,
+      isConnected: false,
+      roomCode: '',
+
+      initHost(onReady, onGuestJoin) {
+        this.isHost = true;
+        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+        this.roomCode = code;
+        const peerId = `murim-sd-${code}`;
+
+        this.peer = new Peer(peerId, {
+          config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+        });
+
+        this.peer.on('open', (id) => {
+          onReady(code);
+        });
+
+        this.peer.on('connection', (connection) => {
+          this.conn = connection;
+          this.setupDataChannel(onGuestJoin);
+        });
+
+        this.peer.on('error', (err) => {
+          alert('네트워크 연결 중 오류가 발생했습니다: ' + err.type);
+        });
+      },
+
+      initGuest(code, onSuccess, onError) {
+        this.isHost = false;
+        this.roomCode = code.toUpperCase();
+        const hostPeerId = `murim-sd-${this.roomCode}`;
+
+        this.peer = new Peer({
+          config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+        });
+
+        this.peer.on('open', () => {
+          this.conn = this.peer.connect(hostPeerId, { reliable: true });
+          this.setupDataChannel(onSuccess);
+        });
+
+        this.peer.on('error', (err) => {
+          if (onError) onError(err);
+        });
+      },
+
+      setupDataChannel(onReady) {
+        this.conn.on('open', () => {
+          this.isConnected = true;
+          if (onReady) onReady();
+        });
+        this.conn.on('data', (data) => {
+          Game.handleNetworkMessage(data);
+        });
+        this.conn.on('close', () => {
+          this.isConnected = false;
+          alert('상대방과의 대전 연결이 종료되었습니다.');
+          Game.returnToLobby();
+        });
+      },
+
+      send(msg) {
+        if (this.conn && this.conn.open) {
+          this.conn.send(msg);
+        }
+      }
+    };
+
+    /* =====================================================
+       H. AI BOT CONTROLLER (연습 모드 봇)
+    ===================================================== */
+    class AIBotController {
+      constructor(character, target) {
+        this.char = character;
+        this.target = target;
+        this.thinkTimer = 0;
+        this.action = 'IDLE';
+      }
+
+      update(dt, vfxMgr) {
+        this.thinkTimer -= dt;
+        const dist = Math.abs(this.char.x - this.target.x);
+        const forward = this.target.x > this.char.x ? 1 : -1;
+
+        if (this.thinkTimer <= 0) {
+          this.thinkTimer = Math.random() * 0.35 + 0.2;
+          this.char.guard(false);
+
+          if (dist > 150) {
+            // 적에게 접근
+            this.char.move(forward);
+            if (Math.random() < 0.25) this.char.jump();
+          } else if (dist < 60 && Math.random() < 0.4) {
+            // 방어 또는 후퇴
+            if (Math.random() < 0.5) {
+              this.char.guard(true);
+            } else {
+              this.char.move(-forward);
+            }
+          } else {
+            // 공격 거리 내: 3단 콤보 or 스킬 or 궁극기
+            if (this.char.sp >= 100 && Math.random() < 0.6) {
+              this.char.sp = 0;
+              vfxMgr.triggerUltimate(this.char.cfg.id, this.char);
+              this.target.takeDamage(180, true, this.char.x, vfxMgr);
+            } else if (Math.random() < 0.35) {
+              this.char.specialSkill(vfxMgr);
+            } else {
+              this.char.attackCombo(vfxMgr);
+            }
+          }
+        }
+      }
+    }
+
+    /* =====================================================
+       I. MAIN ARCADE CONTROLLER & GAME LOOP
+    ===================================================== */
+    const Game = {
+      canvas: null,
+      ctx: null,
+      stage: null,
+      vfx: null,
+      player1: null,
+      player2: null,
+      aiBot: null,
+      isPractice: false,
+      selectedCharId: 'BLUE_DRAGON',
+      roundTimer: 99,
+      timerInterval: null,
+      isGameOver: false,
+      lastTime: 0,
+
+      init() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.stage = new JoseonStageRenderer(this.canvas);
+        this.vfx = new SumiEVFXManager();
+
+        Input.init();
+        this.setupUIEvents();
+        this.renderLobbyMiniAvatars();
+
+        this.lastTime = performance.now();
+        requestAnimationFrame((t) => this.gameLoop(t));
+      },
+
+      setupUIEvents() {
+        // 캐릭터 선택 카드 클릭 이벤트
+        document.querySelectorAll('.char-card').forEach(card => {
+          card.addEventListener('click', () => {
+            document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            this.selectedCharId = card.dataset.char;
+            Sound.thrust();
+          });
+        });
+
+        // 1. 연습 모드 (vs AI) 시작
+        document.getElementById('btn-practice-mode').addEventListener('click', () => {
+          this.isPractice = true;
+          // 랜덤 상대 캐릭터 선정
+          const charKeys = Object.keys(SF.CHARACTERS);
+          const p2CharId = charKeys[Math.floor(Math.random() * charKeys.length)];
+          this.startBattle(this.selectedCharId, p2CharId);
+        });
+
+        // 2. 방 만들기 (P2P Host)
+        document.getElementById('btn-create-room').addEventListener('click', () => {
+          this.isPractice = false;
+          document.getElementById('modal-create-room').style.display = 'flex';
+          Network.initHost(
+            (code) => {
+              document.getElementById('display-room-code').innerText = code;
+            },
+            () => {
+              // Guest 입장 완료!
+              document.getElementById('modal-create-room').style.display = 'none';
+              Network.send({ type: 'START', hostChar: this.selectedCharId });
+            }
+          );
+        });
+
+        document.getElementById('btn-cancel-create').addEventListener('click', () => {
+          document.getElementById('modal-create-room').style.display = 'none';
+        });
+
+        document.getElementById('btn-copy-code').addEventListener('click', () => {
+          const code = document.getElementById('display-room-code').innerText;
+          navigator.clipboard.writeText(code).then(() => alert('방 코드가 클립보드에 복사되었습니다!'));
+        });
+
+        // 3. 방 참가하기 (P2P Guest)
+        document.getElementById('btn-join-modal').addEventListener('click', () => {
+          document.getElementById('modal-join-room').style.display = 'flex';
+          document.getElementById('join-status-text').innerText = '';
+        });
+
+        document.getElementById('btn-cancel-join').addEventListener('click', () => {
+          document.getElementById('modal-join-room').style.display = 'none';
+        });
+
+        document.getElementById('btn-confirm-join').addEventListener('click', () => {
+          const code = document.getElementById('input-join-code').value.trim();
+          if (code.length !== 6) {
+            alert('6자리 코드를 정확히 입력하세요.');
+            return;
+          }
+          document.getElementById('join-status-text').innerText = '호스트에게 연결 요청 중...';
+          Network.initGuest(code, () => {
+            document.getElementById('modal-join-room').style.display = 'none';
+            Network.send({ type: 'GUEST_READY', guestChar: this.selectedCharId });
+          }, (err) => {
+            document.getElementById('join-status-text').innerText = '연결 실패: 코드를 확인하세요.';
+          });
+        });
+
+        // 재경기 & 로비 이동 버튼
+        document.getElementById('btn-rematch').addEventListener('click', () => {
+          document.getElementById('result-screen').style.display = 'none';
+          if (this.isPractice) {
+            const charKeys = Object.keys(SF.CHARACTERS);
+            const p2CharId = charKeys[Math.floor(Math.random() * charKeys.length)];
+            this.startBattle(this.selectedCharId, p2CharId);
+          } else {
+            this.startBattle(this.player1.cfg.id, this.player2.cfg.id);
+          }
+        });
+
+        document.getElementById('btn-to-select').addEventListener('click', () => {
+          this.returnToLobby();
+        });
+      },
+
+      renderLobbyMiniAvatars() {
+        Object.keys(SF.CHARACTERS).forEach(id => {
+          const cvs = document.getElementById(`canvas-card-${id}`);
+          if (!cvs) return;
+          cvs.width = 110;
+          cvs.height = 120;
+          const cCtx = cvs.getContext('2d');
+          const charInst = new MapleSDCharacter(SF.CHARACTERS[id], 55, true);
+          charInst.y = 100;
+          charInst.render(cCtx);
+        });
+      },
+
+      startBattle(p1CharId, p2CharId) {
+        document.getElementById('select-screen').style.display = 'none';
+        document.getElementById('battle-hud').style.display = 'flex';
+        document.getElementById('result-screen').style.display = 'none';
+
+        // 랜덤 계절 배경 선택 (봄/여름/가을/겨울)
+        const seasonKeys = ['SPRING', 'SUMMER', 'AUTUMN', 'WINTER'];
+        const chosenSeason = seasonKeys[Math.floor(Math.random() * seasonKeys.length)];
+        this.stage.setSeason(chosenSeason);
+        document.getElementById('season-text').innerText = this.stage.season.name;
+
+        // 플레이어 캐릭터 생성
+        this.player1 = new MapleSDCharacter(SF.CHARACTERS[p1CharId], 360, true);
+        this.player2 = new MapleSDCharacter(SF.CHARACTERS[p2CharId], 920, false);
+
+        if (this.isPractice) {
+          this.aiBot = new AIBotController(this.player2, this.player1);
+        } else {
+          this.aiBot = null;
+        }
+
+        // HUD 프로필 업데이트
+        document.getElementById('avatar-p1').innerText = this.player1.cfg.avatar;
+        document.getElementById('name-p1').innerText = this.player1.cfg.nameKr;
+        document.getElementById('title-p1').innerText = this.player1.cfg.title;
+
+        document.getElementById('avatar-p2').innerText = this.player2.cfg.avatar;
+        document.getElementById('name-p2').innerText = this.player2.cfg.nameKr;
+        document.getElementById('title-p2').innerText = this.player2.cfg.title;
+
+        this.roundTimer = SF.ROUND_TIME;
+        this.isGameOver = false;
+
+        clearInterval(this.timerInterval);
+        this.timerInterval = setInterval(() => {
+          if (!this.isGameOver && this.roundTimer > 0) {
+            this.roundTimer--;
+            document.getElementById('timer-text').innerText = this.roundTimer;
+            if (this.roundTimer <= 0) this.handleTimeout();
+          }
+        }, 1000);
+      },
+
+      handleTimeout() {
+        this.isGameOver = true;
+        let winnerText = '';
+        if (this.player1.hp > this.player2.hp) winnerText = `${this.player1.cfg.nameKr} 판정승!`;
+        else if (this.player2.hp > this.player1.hp) winnerText = `${this.player2.cfg.nameKr} 판정승!`;
+        else winnerText = '무승부!';
+        this.showResultScreen(winnerText);
+      },
+
+      returnToLobby() {
+        clearInterval(this.timerInterval);
+        document.getElementById('battle-hud').style.display = 'none';
+        document.getElementById('result-screen').style.display = 'none';
+        document.getElementById('select-screen').style.display = 'flex';
+        this.player1 = null;
+        this.player2 = null;
+      },
+
+      showResultScreen(title) {
+        this.isGameOver = true;
+        clearInterval(this.timerInterval);
+        document.getElementById('victory-title').innerText = title;
+        document.getElementById('victory-subtitle').innerText = '사방신 무림의 승패가 갈렸습니다.';
+        document.getElementById('result-screen').style.display = 'flex';
+      },
+
+      handleNetworkMessage(data) {
+        if (data.type === 'START') {
+          this.startBattle(data.hostChar, this.selectedCharId);
+        } else if (data.type === 'GUEST_READY') {
+          this.startBattle(this.selectedCharId, data.guestChar);
+        } else if (data.type === 'SYNC') {
+          // 상대방 위치 및 상태 동기화
+          const remotePlayer = Network.isHost ? this.player2 : this.player1;
+          if (remotePlayer) {
+            remotePlayer.x = data.x;
+            remotePlayer.y = data.y;
+            remotePlayer.facingRight = data.facingRight;
+            remotePlayer.hp = data.hp;
+            remotePlayer.sp = data.sp;
+            remotePlayer.isGuarding = data.isGuarding;
+          }
+        } else if (data.type === 'ACTION') {
+          const remotePlayer = Network.isHost ? this.player2 : this.player1;
+          if (remotePlayer) {
+            if (data.action === 'ATTACK') remotePlayer.attackCombo(this.vfx);
+            else if (data.action === 'SKILL') remotePlayer.specialSkill(this.vfx);
+            else if (data.action === 'ULTIMATE') {
+              remotePlayer.sp = 0;
+              this.vfx.triggerUltimate(remotePlayer.cfg.id, remotePlayer);
+            }
+          }
+        }
+      },
+
+      gameLoop(timestamp) {
+        const dt = Math.min((timestamp - this.lastTime) / 1000, 0.05);
+        this.lastTime = timestamp;
+
+        this.update(dt);
+        this.render();
+
+        requestAnimationFrame((t) => this.gameLoop(t));
+      },
+
+      update(dt) {
+        this.stage.update();
+        this.vfx.update(dt);
+
+        if (!this.player1 || !this.player2) return;
+
+        // 1P 조작키 처리 (WASD + JKL)
+        if (!this.isGameOver && !this.player1.isDead) {
+          if (Input.isDown('a')) this.player1.move(-1);
+          else if (Input.isDown('d')) this.player1.move(1);
+
+          if (Input.isJustPressed('w')) this.player1.jump();
+          this.player1.guard(Input.isDown('s'));
+
+          if (Input.isJustPressed('j')) {
+            this.player1.attackCombo(this.vfx);
+            if (!this.isPractice) Network.send({ type: 'ACTION', action: 'ATTACK' });
+          }
+          if (Input.isJustPressed('k')) {
+            this.player1.specialSkill(this.vfx);
+            if (!this.isPractice) Network.send({ type: 'ACTION', action: 'SKILL' });
+          }
+          if (Input.isJustPressed('l')) {
+            if (this.player1.sp >= 100) {
+              this.player1.sp = 0;
+              this.vfx.triggerUltimate(this.player1.cfg.id, this.player1);
+              this.player2.takeDamage(190, true, this.player1.x, this.vfx);
+              if (!this.isPractice) Network.send({ type: 'ACTION', action: 'ULTIMATE' });
+            }
+          }
+        }
+
+        // AI 또는 2P 업데이트
+        if (this.aiBot) {
+          this.aiBot.update(dt, this.vfx);
+        }
+
+        this.player1.update(dt);
+        this.player2.update(dt);
+
+        // 히트박스 충돌 판정 (1P -> 2P, 2P -> 1P)
+        this.checkCombatCollision(this.player1, this.player2);
+        this.checkCombatCollision(this.player2, this.player1);
+
+        // HUD 갱신
+        this.updateHUD();
+
+        // 실시간 P2P 데이터 동기화 전송
+        if (!this.isPractice && Network.isConnected) {
+          const myChar = Network.isHost ? this.player1 : this.player2;
+          Network.send({
+            type: 'SYNC',
+            x: myChar.x,
+            y: myChar.y,
+            facingRight: myChar.facingRight,
+            hp: myChar.hp,
+            sp: myChar.sp,
+            isGuarding: myChar.isGuarding
+          });
+        }
+
+        // KO 승패 체크
+        if (!this.isGameOver) {
+          if (this.player1.isDead) {
+            this.showResultScreen(`${this.player2.cfg.nameKr} 승리!`);
+          } else if (this.player2.isDead) {
+            this.showResultScreen(`${this.player1.cfg.nameKr} 승리!`);
+          }
+        }
+      },
+
+      checkCombatCollision(attacker, defender) {
+        if (!attacker.hitbox || defender.isDead) return;
+        const h = attacker.hitbox;
+
+        // AABB 충돌 체크
+        const defLeft = defender.x - 22;
+        const defRight = defender.x + 22;
+        const defTop = defender.y - 70;
+        const defBottom = defender.y;
+
+        const hitLeft = h.x;
+        const hitRight = h.x + h.w;
+        const hitTop = h.y;
+        const hitBottom = h.y + h.h;
+
+        if (hitRight > defLeft && hitLeft < defRight && hitBottom > defTop && hitTop < defBottom) {
+          defender.takeDamage(h.damage, h.isHeavy, attacker.x, this.vfx);
+          attacker.sp = Math.min(attacker.maxSp, attacker.sp + 18); // 공격 성공 시 SP 충전
+          attacker.hitbox = null; // 1회 히트 후 소멸
+        }
+      },
+
+      updateHUD() {
+        if (!this.player1 || !this.player2) return;
+
+        // 1P HP / SP
+        const p1HpPct = (this.player1.hp / this.player1.maxHp) * 100;
+        document.getElementById('hp-p1').style.width = `${p1HpPct}%`;
+        document.getElementById('hp-txt-p1').innerText = `${this.player1.hp} / ${this.player1.maxHp}`;
+        document.getElementById('sp-p1').style.width = `${this.player1.sp}%`;
+
+        // 2P HP / SP
+        const p2HpPct = (this.player2.hp / this.player2.maxHp) * 100;
+        document.getElementById('hp-p2').style.width = `${p2HpPct}%`;
+        document.getElementById('hp-txt-p2').innerText = `${this.player2.hp} / ${this.player2.maxHp}`;
+        document.getElementById('sp-p2').style.width = `${this.player2.sp}%`;
+
+        // 콤보 표시
+        const comboP1 = document.getElementById('combo-p1');
+        if (this.player1.comboStep > 1 && this.player1.isAttacking) {
+          comboP1.innerText = `${this.player1.comboStep}단 연계!`;
+          comboP1.classList.add('active');
+        } else {
+          comboP1.classList.remove('active');
+        }
+      },
+
+      render() {
+        this.ctx.save();
+
+        // 카메라 쉐이크 효과
+        if (this.vfx.screenShake > 0) {
+          const shakeX = (Math.random() - 0.5) * this.vfx.screenShake;
+          const shakeY = (Math.random() - 0.5) * this.vfx.screenShake;
+          this.ctx.translate(shakeX, shakeY);
+        }
+
+        // 1. 수묵담채화 한지 배경
+        this.stage.render();
+
+        // 2. 캐릭터 렌더링
+        if (this.player1) this.player1.render(this.ctx);
+        if (this.player2) this.player2.render(this.ctx);
+
+        // 3. 수묵 VFX & 궁극기 연출
+        this.vfx.render(this.ctx);
+
+        this.ctx.restore();
+      }
+    };
+
+    // 윈도우 로드 시 게임 엔진 가동
+    window.addEventListener('DOMContentLoaded', () => {
+      Game.init();
+    });
+  </script>
+</body>
+</html>

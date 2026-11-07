@@ -3,25 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>사방신 무림전 (四方神 武林傳) - 1v1 온라인 대전</title>
-  <!-- PeerJS WebRTC P2P DataChannel Library -->
+  <title>사방신 무림전 (四方神 武林傳) - 수묵담채화 SD 대전</title>
+  <!-- WebRTC P2P DataChannel Library -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 
-  <!-- Inlined Sumi-e Wuxia Style (Vercel 배포 시 CSS 깨짐 방지 완벽 내장) -->
-  <style>
-    @charset "UTF-8";
+  <!-- Google Fonts: Noto Serif KR (조선 회화풍 서체) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;900&display=swap" rel="stylesheet">
 
+  <style>
     :root {
-      --bg-color: #07090f;
-      --panel-bg: rgba(13, 17, 28, 0.94);
-      --border-color: rgba(255, 215, 0, 0.3);
-      --gold: #ffd700;
-      --gold-glow: rgba(255, 215, 0, 0.45);
-      --cyan: #00f3ff;
-      --crimson: #ff2a4b;
-      --indigo: #3a7afe;
-      --text-main: #f5f7fc;
-      --text-dim: #9aaec7;
+      --hanji-bg: #f6f1e5;
+      --hanji-dark: #231f1a;
+      --ink-black: #111418;
+      --ink-wash: rgba(17, 20, 24, 0.88);
+      --border-gold: #c59b27;
+      --border-gold-glow: rgba(197, 155, 39, 0.45);
+      --seal-red: #c92a2a;
+      --cyan-dragon: #0096c7;
+      --crimson-bird: #e63946;
+      --amber-tiger: #f77f00;
+      --dark-tortoise: #212529;
+      --font-wuxia: 'Noto Serif KR', 'Batang', serif;
     }
 
     * {
@@ -33,31 +37,30 @@
     }
 
     body {
-      background-color: var(--bg-color);
-      color: var(--text-main);
-      font-family: 'Pretendard', 'Noto Serif KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, serif;
+      background-color: #12100e;
+      color: #332d25;
+      font-family: var(--font-wuxia);
       overflow: hidden;
       display: flex;
       justify-content: center;
       align-items: center;
       min-height: 100vh;
-      background: radial-gradient(circle at center, #121828 0%, #040508 100%);
+      background: radial-gradient(circle at center, #2e261f 0%, #0a0806 100%);
     }
 
-    /* 16:9 화면 중앙 정렬 및 반응형 뷰포트 컨테이너 */
+    /* 16:9 반응형 캔버스 프레임 (동양화 족자 액자 테두리) */
     #game-container {
       position: relative;
       width: min(1280px, 100vw, 177.78vh);
       height: min(720px, 56.25vw, 100vh);
       aspect-ratio: 16 / 9;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.95), 0 0 50px rgba(255, 215, 0, 0.15);
-      border: 2px solid var(--border-color);
+      box-shadow: 0 25px 80px rgba(0, 0, 0, 0.95), 0 0 50px rgba(197, 155, 39, 0.25);
+      border: 4px solid var(--border-gold);
       border-radius: 8px;
       overflow: hidden;
-      background: #000;
+      background: var(--hanji-bg);
     }
 
-    /* Canvas 100% 뷰포트 채우기 및 도트 스케일링 */
     canvas#gameCanvas {
       position: absolute;
       top: 0;
@@ -65,10 +68,6 @@
       width: 100%;
       height: 100%;
       display: block;
-      image-rendering: -moz-crisp-edges;
-      image-rendering: -webkit-crisp-edges;
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
     }
 
     .ui-layer {
@@ -85,7 +84,7 @@
     }
 
     /* =========================================
-       TOP BATTLE HUD (수묵 무협풍 게이지)
+       1. 전투 상단 HUD (수묵화풍 체력 & 기력 게이지)
     ========================================= */
     #battle-hud {
       display: none;
@@ -100,166 +99,220 @@
       pointer-events: none;
     }
 
-    .fighter-hud {
+    .hud-player {
       display: flex;
       flex-direction: column;
       width: 440px;
-      gap: 7px;
+      position: relative;
     }
 
-    .fighter-hud.p2 {
+    .hud-player.p2 {
       align-items: flex-end;
     }
 
-    .hud-info {
+    .player-profile-row {
       display: flex;
       align-items: center;
       gap: 12px;
+      margin-bottom: 6px;
     }
 
-    .fighter-hud.p2 .hud-info {
+    .hud-player.p2 .player-profile-row {
       flex-direction: row-reverse;
     }
 
-    .char-badge {
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 1px;
-      padding: 3px 10px;
-      border-radius: 4px;
-      background: rgba(10, 14, 22, 0.85);
-      border: 1px solid rgba(255, 215, 0, 0.4);
-      text-shadow: 0 0 8px currentColor;
-    }
-
-    .fighter-name {
+    /* 낙관 도장 스타일의 원형 아바타 */
+    .seal-avatar {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: 2px solid var(--border-gold);
+      background: var(--hanji-dark);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-size: 22px;
       font-weight: 900;
-      letter-spacing: 2px;
-      text-shadow: 0 0 10px rgba(255, 255, 255, 0.5), 2px 2px 4px #000;
+      color: #fff;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+      position: relative;
     }
 
-    /* Health Bar */
-    .hp-container {
-      position: relative;
+    .seal-avatar::after {
+      content: '';
+      position: absolute;
+      inset: 2px;
+      border: 1px dashed rgba(255, 255, 255, 0.4);
+      border-radius: 50%;
+    }
+
+    .name-title-box {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .hud-player.p2 .name-title-box {
+      text-align: right;
+    }
+
+    .player-name-kr {
+      font-size: 18px;
+      font-weight: 900;
+      color: var(--hanji-dark);
+      text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.8);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hud-player.p2 .player-name-kr {
+      justify-content: flex-end;
+    }
+
+    .player-title-tag {
+      font-size: 11px;
+      color: #6c584c;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    /* 체력 바 (HP) - 붉은 먹빛 게이지 */
+    .bar-frame {
       width: 100%;
-      height: 26px;
-      background: #0f131d;
-      border: 2px solid var(--gold);
+      height: 22px;
+      background: rgba(25, 20, 16, 0.85);
+      border: 2px solid var(--border-gold);
       border-radius: 4px;
-      overflow: hidden;
-      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.9), 0 0 12px rgba(255, 215, 0, 0.25);
-    }
-
-    .hp-lag {
-      position: absolute;
-      top: 0;
-      height: 100%;
-      background: #c53030;
-      transition: width 0.35s ease-out;
-    }
-
-    .hp-bar {
-      position: absolute;
-      top: 0;
-      height: 100%;
-      background: linear-gradient(90deg, #00e676, #00c853);
-      box-shadow: 0 0 12px rgba(0, 230, 118, 0.7);
-      transition: width 0.1s linear;
-    }
-
-    .fighter-hud.p1 .hp-bar, .fighter-hud.p1 .hp-lag { left: 0; }
-    .fighter-hud.p2 .hp-bar, .fighter-hud.p2 .hp-lag { right: 0; }
-
-    /* SP Gauge */
-    .sp-container {
       position: relative;
-      width: 75%;
-      height: 13px;
-      background: #090c14;
-      border: 1px solid rgba(255, 215, 0, 0.4);
+      overflow: hidden;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.8), 0 2px 6px rgba(0,0,0,0.3);
+    }
+
+    .hp-fill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #b7094c, #c92a2a, #ff6b6b);
+      transition: width 0.15s ease-out;
+      position: relative;
+    }
+
+    .hud-player.p2 .hp-fill {
+      float: right;
+      background: linear-gradient(270deg, #b7094c, #c92a2a, #ff6b6b);
+    }
+
+    .hp-text {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 11px;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 1px 1px 2px #000;
+      letter-spacing: 0.5px;
+      padding: 0 8px;
+    }
+
+    .hud-player.p1 .hp-text { left: 4px; }
+    .hud-player.p2 .hp-text { right: 4px; }
+
+    /* 기력 게이지 (SP) - 금빛 먹선 */
+    .sp-frame {
+      width: 82%;
+      height: 12px;
+      margin-top: 5px;
+      background: rgba(25, 20, 16, 0.85);
+      border: 1.5px solid var(--border-gold);
       border-radius: 3px;
+      position: relative;
       overflow: hidden;
     }
 
-    .fighter-hud.p2 .sp-container { align-self: flex-end; }
-
-    .sp-bar {
-      position: absolute;
-      top: 0;
+    .sp-fill {
       height: 100%;
-      background: linear-gradient(90deg, #ff9100, #ffd700);
-      box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
-      transition: width 0.12s ease-out;
+      width: 0%;
+      background: linear-gradient(90deg, #d4a373, #faedcd, #ffd166);
+      box-shadow: 0 0 8px rgba(255, 209, 102, 0.8);
+      transition: width 0.2s ease-out;
     }
 
-    .fighter-hud.p1 .sp-bar { left: 0; }
-    .fighter-hud.p2 .sp-bar { right: 0; }
-
-    .sp-full-glow {
-      animation: spGlowPulse 0.6s infinite alternate;
+    .hud-player.p2 .sp-fill {
+      float: right;
     }
 
-    @keyframes spGlowPulse {
-      0% { box-shadow: 0 0 8px #ffd700; filter: brightness(1); }
-      100% { box-shadow: 0 0 25px #ffffff, 0 0 35px #ffd700; filter: brightness(1.4); }
+    .sp-tag {
+      position: absolute;
+      top: -1px;
+      font-size: 9px;
+      font-weight: 900;
+      color: #332717;
+      line-height: 12px;
+      padding: 0 5px;
     }
+    .hud-player.p1 .sp-tag { right: 4px; color: #fff; }
+    .hud-player.p2 .sp-tag { left: 4px; color: #fff; }
 
-    .hud-center {
+    /* 중앙 원형 타이머 & 태극 문양 */
+    #round-timer-box {
       display: flex;
       flex-direction: column;
       align-items: center;
+      position: relative;
+      top: -4px;
+    }
+
+    .timer-circle {
+      width: 66px;
+      height: 66px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #fcf8ee 0%, #e6dcc8 80%, #a48c65 100%);
+      border: 3px solid var(--border-gold);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), 0 0 15px var(--border-gold-glow);
+      display: flex;
+      align-items: center;
       justify-content: center;
-    }
-
-    .round-timer {
-      font-size: 46px;
+      font-size: 30px;
       font-weight: 900;
-      color: #ffd700;
-      text-shadow: 0 0 20px rgba(255, 215, 0, 0.6), 2px 2px 6px #000;
-      font-family: 'Arial Black', sans-serif;
-      letter-spacing: 2px;
-      line-height: 1;
+      color: #1a1612;
+      position: relative;
     }
 
-    .mode-badge {
+    .season-stamp {
+      margin-top: 6px;
+      background: var(--ink-wash);
+      color: #f7ede2;
+      border: 1px solid var(--border-gold);
+      padding: 3px 12px;
+      border-radius: 12px;
       font-size: 11px;
-      color: var(--cyan);
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      margin-top: 2px;
-      background: rgba(10, 14, 24, 0.85);
-      padding: 3px 8px;
-      border: 1px solid rgba(0, 243, 255, 0.4);
-      border-radius: 3px;
-      text-shadow: 0 0 8px rgba(0, 243, 255, 0.5);
+      font-weight: 600;
+      letter-spacing: 1px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
     }
 
-    /* Announcer Banner */
-    #announcer-banner {
+    /* 콤보 카운트 표시 */
+    .combo-display {
       position: absolute;
-      top: 40%;
-      left: 50%;
-      transform: translate(-50%, -50%) scale(0);
-      font-size: 68px;
+      top: 110px;
+      font-size: 26px;
       font-weight: 900;
-      letter-spacing: 6px;
-      color: #fff;
-      text-shadow: 0 0 30px #ffd700, 0 0 60px #ff2a4b, 0 8px 24px rgba(0,0,0,0.95);
-      pointer-events: none;
-      transition: transform 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s;
-      z-index: 25;
+      color: #c92a2a;
+      text-shadow: 2px 2px 0 #fff, 0 0 10px rgba(201, 42, 42, 0.5);
       opacity: 0;
-      text-align: center;
+      transition: opacity 0.2s, transform 0.2s;
+      transform: scale(0.8);
+      pointer-events: none;
     }
-
-    #announcer-banner.show {
-      transform: translate(-50%, -50%) scale(1);
+    .combo-display.active {
       opacity: 1;
+      transform: scale(1.1);
     }
+    #combo-p1 { left: 45px; }
+    #combo-p2 { right: 45px; text-align: right; }
 
     /* =========================================
-       수묵화풍 대기실 & 캐릭터 선택 (LOBBY UI)
+       2. 메인 로비 / 캐릭터 선택 화면 (수묵화 족자)
     ========================================= */
     #select-screen {
       position: absolute;
@@ -267,55 +320,67 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(8, 11, 18, 0.96);
-      backdrop-filter: blur(12px);
+      background: radial-gradient(circle at center, rgba(246, 241, 229, 0.94) 0%, rgba(220, 209, 188, 0.96) 100%);
       display: flex;
       flex-direction: column;
+      align-items: center;
       justify-content: space-between;
-      padding: 32px 54px;
-      z-index: 30;
+      padding: 24px 40px;
+      z-index: 20;
     }
 
-    .select-header {
+    .lobby-header {
       text-align: center;
     }
 
-    .game-title {
-      font-size: 42px;
+    .game-logo-title {
+      font-size: 44px;
       font-weight: 900;
-      letter-spacing: 5px;
-      background: linear-gradient(135deg, #ffd700, #ffffff, #00f3ff);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      text-shadow: 0 0 30px rgba(255, 215, 0, 0.35);
-      margin-bottom: 2px;
+      color: #121418;
+      letter-spacing: 4px;
+      text-shadow: 2px 2px 0 rgba(255, 255, 255, 0.8), 0 0 20px rgba(197, 155, 39, 0.3);
+      position: relative;
+      display: inline-block;
     }
 
-    .select-subtitle {
-      color: var(--text-dim);
-      font-size: 13px;
-      letter-spacing: 2px;
+    .game-logo-title::before, .game-logo-title::after {
+      content: '◆';
+      color: var(--border-gold);
+      font-size: 20px;
+      vertical-align: middle;
+      margin: 0 12px;
     }
 
-    /* 4 Gods Character Cards */
-    .cards-container {
+    .game-subtitle {
+      font-size: 14px;
+      color: #5c4d3c;
+      letter-spacing: 3px;
+      margin-top: 4px;
+      font-weight: 600;
+    }
+
+    /* 4인 캐릭터 카드 그리드 */
+    .char-card-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 22px;
-      margin: 14px 0;
+      gap: 20px;
+      width: 100%;
+      max-width: 1160px;
+      margin: 12px 0;
     }
 
     .char-card {
-      position: relative;
-      background: var(--panel-bg);
-      border: 2px solid var(--border-color);
-      border-radius: 10px;
-      padding: 16px;
+      background: #fdfaf5;
+      border: 3px solid #d4c2a5;
+      border-radius: 8px;
+      padding: 16px 14px;
       display: flex;
       flex-direction: column;
       align-items: center;
       cursor: pointer;
-      transition: all 0.22s cubic-bezier(0.25, 0.8, 0.25, 1);
+      transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+      position: relative;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
       overflow: hidden;
     }
 
@@ -326,110 +391,126 @@
       left: 0;
       width: 100%;
       height: 4px;
-      background: var(--card-color, var(--cyan));
+      background: var(--card-color, #333);
     }
 
     .char-card:hover {
       transform: translateY(-8px);
-      border-color: var(--card-color, var(--cyan));
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7), 0 0 25px var(--card-glow, rgba(0, 243, 255, 0.4));
+      border-color: var(--border-gold);
+      box-shadow: 0 14px 28px rgba(0,0,0,0.18), 0 0 20px var(--border-gold-glow);
     }
 
-    .char-card.selected-p1 {
-      border-color: var(--gold);
-      box-shadow: 0 0 30px rgba(255, 215, 0, 0.5), inset 0 0 15px rgba(255, 215, 0, 0.15);
-      background: rgba(22, 28, 44, 0.95);
+    .char-card.selected {
+      border-color: var(--seal-red);
+      background: #fffdf9;
+      box-shadow: 0 12px 30px rgba(201, 42, 42, 0.25), 0 0 0 2px var(--seal-red);
+      transform: translateY(-6px);
+    }
+
+    .char-card.selected::after {
+      content: '선택됨 (1P)';
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: var(--seal-red);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 900;
+      padding: 2px 7px;
+      border-radius: 10px;
     }
 
     .char-avatar-canvas {
-      width: 120px;
-      height: 130px;
-      margin-bottom: 6px;
-      image-rendering: pixelated;
+      width: 110px;
+      height: 120px;
+      display: block;
+      margin-bottom: 8px;
     }
 
     .char-name-kr {
-      font-size: 20px;
+      font-size: 21px;
       font-weight: 900;
+      color: #1d1915;
       margin-bottom: 2px;
-      color: #fff;
     }
 
     .char-title {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      color: var(--card-color, var(--gold));
-      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #7f6a55;
+      margin-bottom: 10px;
+      letter-spacing: 0.5px;
     }
 
     .char-tagline {
       font-size: 11px;
-      color: var(--text-dim);
-      font-weight: 500;
+      color: #4a3e33;
       text-align: center;
+      line-height: 1.4;
+      height: 32px;
       margin-bottom: 10px;
-      min-height: 30px;
-      line-height: 1.35;
+      word-break: keep-all;
     }
 
-    /* Radar / Stat Bars */
     .stat-group {
       width: 100%;
       display: flex;
       flex-direction: column;
       gap: 5px;
-      font-size: 10px;
+      padding-top: 8px;
+      border-top: 1px dashed #decbb3;
     }
 
     .stat-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      color: var(--text-dim);
+      font-size: 11px;
+      color: #635343;
+      font-weight: 600;
     }
 
     .stat-bar-bg {
-      width: 85px;
+      width: 60%;
       height: 6px;
-      background: rgba(255, 255, 255, 0.1);
+      background: #e8ded1;
       border-radius: 3px;
       overflow: hidden;
     }
 
     .stat-bar-fill {
       height: 100%;
-      background: var(--card-color, var(--cyan));
+      background: var(--card-color, #c59b27);
       border-radius: 3px;
     }
 
-    /* Footer & Controls Preview */
+    /* 하단 컨트롤 설명 & 액션 버튼 */
     .select-footer {
+      width: 100%;
+      max-width: 1160px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-top: 1px solid var(--border-color);
-      padding-top: 14px;
+      padding-top: 10px;
+      border-top: 2px solid #d4c2a5;
     }
 
     .controls-preview {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
       font-size: 12px;
-      color: var(--text-dim);
+      color: #4d4033;
+      line-height: 1.6;
     }
 
     .key-pill {
       display: inline-block;
-      background: rgba(255, 255, 255, 0.12);
-      color: var(--gold);
-      padding: 2px 7px;
+      background: #ebe0cf;
+      border: 1px solid #bba78c;
+      padding: 1px 7px;
       border-radius: 4px;
       font-weight: 900;
-      font-size: 11px;
+      color: #1a1612;
       margin: 0 2px;
-      border: 1px solid rgba(255, 215, 0, 0.4);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     }
 
     .room-actions {
@@ -437,42 +518,42 @@
       gap: 12px;
     }
 
-    /* 수묵화풍 버튼 스타일 */
     .btn-wuxia {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid var(--border-color);
-      color: #fff;
-      font-family: inherit;
-      font-size: 14px;
-      font-weight: 800;
-      letter-spacing: 1.5px;
-      padding: 11px 22px;
+      font-family: var(--font-wuxia);
+      font-size: 15px;
+      font-weight: 900;
+      padding: 12px 26px;
       border-radius: 6px;
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-      transition: all 0.2s;
+      border: 2px solid var(--border-gold);
+      background: #fdfbf7;
+      color: #2b251d;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      letter-spacing: 1px;
     }
 
     .btn-wuxia:hover {
-      background: rgba(255, 215, 0, 0.15);
-      border-color: var(--gold);
-      box-shadow: 0 0 16px rgba(255, 215, 0, 0.35);
+      background: #f4ecdc;
       transform: translateY(-2px);
+      box-shadow: 0 6px 15px rgba(0,0,0,0.15);
     }
 
     .btn-wuxia.primary {
-      background: linear-gradient(135deg, #ffd700, #ff9900);
-      border: none;
-      color: #000;
-      box-shadow: 0 0 25px rgba(255, 215, 0, 0.45);
+      background: linear-gradient(135deg, #c92a2a 0%, #9e1f1f 100%);
+      color: #fff;
+      border-color: #771717;
+      box-shadow: 0 4px 12px rgba(201, 42, 42, 0.35);
     }
 
     .btn-wuxia.primary:hover {
-      transform: translateY(-2px) scale(1.03);
-      box-shadow: 0 0 35px rgba(255, 215, 0, 0.75);
+      background: linear-gradient(135deg, #db3636 0%, #b22424 100%);
+      box-shadow: 0 6px 18px rgba(201, 42, 42, 0.5);
     }
 
-    /* Modals */
+    /* =========================================
+       3. 모달 레이어 (방 만들기 / 방 참가)
+    ========================================= */
     .modal-overlay {
       display: none;
       position: absolute;
@@ -480,95 +561,86 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.88);
-      backdrop-filter: blur(8px);
+      background: rgba(14, 12, 10, 0.75);
+      backdrop-filter: blur(4px);
       justify-content: center;
       align-items: center;
-      z-index: 60;
+      z-index: 50;
     }
 
     .modal-content {
-      background: #0f1422;
-      border: 2px solid var(--gold);
-      border-radius: 10px;
-      padding: 34px 44px;
-      width: 460px;
+      background: #fbf7ee;
+      border: 3px solid var(--border-gold);
+      border-radius: 8px;
+      padding: 32px 42px;
+      width: 440px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
       text-align: center;
-      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.85), 0 0 40px rgba(255, 215, 0, 0.25);
+      position: relative;
     }
 
     .modal-title {
       font-size: 24px;
       font-weight: 900;
-      color: var(--gold);
-      margin-bottom: 10px;
+      color: #1a1612;
+      margin-bottom: 12px;
       letter-spacing: 2px;
     }
 
     .modal-desc {
-      color: var(--text-dim);
       font-size: 13px;
-      line-height: 1.5;
+      color: #635445;
       margin-bottom: 22px;
+      line-height: 1.5;
     }
 
     .room-code-display {
-      display: inline-block;
-      font-size: 44px;
+      font-size: 38px;
       font-weight: 900;
       letter-spacing: 8px;
-      color: #fff;
-      background: rgba(255, 215, 0, 0.12);
-      border: 2px dashed var(--gold);
+      color: #c92a2a;
+      background: #ece3d2;
+      border: 2px dashed #bba688;
       border-radius: 6px;
-      padding: 10px 24px;
+      padding: 14px 20px;
       margin-bottom: 18px;
-      text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
-      animation: codePulse 1.5s infinite alternate;
-    }
-
-    @keyframes codePulse {
-      0% { transform: scale(1); }
-      100% { transform: scale(1.03); box-shadow: 0 0 25px rgba(255, 215, 0, 0.4); }
+      font-family: monospace;
+      text-shadow: 1px 1px 0 #fff;
     }
 
     .room-code-input {
-      width: 100%;
-      font-family: inherit;
-      font-size: 32px;
+      font-size: 28px;
       font-weight: 900;
       letter-spacing: 6px;
-      text-transform: uppercase;
       text-align: center;
-      color: #fff;
-      background: #151b2c;
-      border: 2px solid var(--border-color);
+      color: #1a1612;
+      background: #fff;
+      border: 2px solid var(--border-gold);
       border-radius: 6px;
-      padding: 8px;
-      margin-bottom: 18px;
+      padding: 10px 16px;
+      width: 80%;
+      margin: 0 auto 18px auto;
+      text-transform: uppercase;
+      font-family: monospace;
       outline: none;
-      transition: all 0.2s;
     }
 
     .room-code-input:focus {
-      border-color: var(--gold);
-      box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+      border-color: #c92a2a;
+      box-shadow: 0 0 10px rgba(201, 42, 42, 0.3);
     }
 
     .status-waiting {
-      color: var(--cyan);
       font-size: 13px;
-      font-weight: 700;
-      margin-bottom: 18px;
-      animation: waitBlink 1.2s infinite;
+      color: #7f6b55;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
 
-    @keyframes waitBlink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    /* Result Victory Screen */
+    /* 승패 결과 화면 */
     #result-screen {
       display: none;
       position: absolute;
@@ -576,28 +648,35 @@
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.9);
-      backdrop-filter: blur(8px);
+      background: rgba(14, 12, 10, 0.85);
+      backdrop-filter: blur(6px);
       flex-direction: column;
-      justify-content: center;
       align-items: center;
-      z-index: 50;
+      justify-content: center;
+      z-index: 40;
     }
 
     .victory-title {
-      font-size: 60px;
+      font-size: 64px;
       font-weight: 900;
-      letter-spacing: 4px;
-      color: var(--gold);
-      text-shadow: 0 0 30px var(--gold), 0 0 60px #ff9900;
-      margin-bottom: 8px;
+      color: #f7ede2;
+      letter-spacing: 8px;
+      text-shadow: 0 0 25px rgba(255, 215, 0, 0.6), 2px 2px 0 #000;
+      margin-bottom: 12px;
+      transform: scale(0.9);
+      animation: victoryPulse 1.5s infinite alternate ease-in-out;
+    }
+
+    @keyframes victoryPulse {
+      from { transform: scale(0.95); text-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
+      to { transform: scale(1.05); text-shadow: 0 0 40px rgba(255, 215, 0, 0.9); }
     }
 
     .victory-subtitle {
-      font-size: 22px;
-      color: #fff;
+      font-size: 20px;
+      color: #decbb3;
+      margin-bottom: 36px;
       letter-spacing: 2px;
-      margin-bottom: 28px;
     }
 
     .result-buttons {
@@ -608,148 +687,167 @@
 </head>
 <body>
 
+  <!-- 전체 게임 컨테이너 (16:9 프레임) -->
   <div id="game-container">
-    <!-- Main Battle Canvas (320x180 Pixel Buffer Upscaled to 1280x720) -->
+    <!-- HTML5 메인 렌더링 캔버스 -->
     <canvas id="gameCanvas" width="1280" height="720"></canvas>
 
-    <!-- Announcer Banner (결전 개시 / 승부 갈림) -->
-    <div id="announcer-banner">결전(決戰) 개시!</div>
-
-    <!-- Battle HUD Layer -->
+    <!-- UI LAYER: 전투 상단 HUD -->
     <div id="battle-hud" class="ui-layer">
-      <!-- 1P Health & SP HUD -->
-      <div class="fighter-hud p1">
-        <div class="hud-info">
-          <span class="char-badge" id="p1-badge">신속의 청도검객</span>
-          <span class="fighter-name" id="p1-name">청룡</span>
+      <!-- 1P HUD (좌측) -->
+      <div class="hud-player p1">
+        <div class="player-profile-row">
+          <div class="seal-avatar" id="avatar-p1">龍</div>
+          <div class="name-title-box">
+            <div class="player-name-kr">
+              <span id="name-p1">청룡</span>
+              <span style="font-size: 11px; background: #c59b27; color:#fff; padding:1px 5px; border-radius:3px;">1P</span>
+            </div>
+            <div class="player-title-tag" id="title-p1">질풍 청룡검객</div>
+          </div>
         </div>
-        <div class="hp-container">
-          <div class="hp-lag" id="p1-hp-lag" style="width: 100%;"></div>
-          <div class="hp-bar" id="p1-hp-bar" style="width: 100%;"></div>
+        <div class="bar-frame">
+          <div class="hp-fill" id="hp-p1"></div>
+          <div class="hp-text" id="hp-txt-p1">1000 / 1000</div>
         </div>
-        <div class="sp-container">
-          <div class="sp-bar" id="p1-sp-bar" style="width: 0%;"></div>
+        <div class="sp-frame">
+          <div class="sp-fill" id="sp-p1"></div>
+          <div class="sp-tag">기력 (SP)</div>
         </div>
       </div>
 
-      <!-- Center Round Timer & Seasonal Arena Badge -->
-      <div class="hud-center">
-        <div class="round-timer" id="round-timer">99</div>
-        <div class="mode-badge" id="hud-mode-badge">1v1 ONLINE</div>
+      <!-- 중앙 라운드 타이머 & 계절 낙관 -->
+      <div id="round-timer-box">
+        <div class="timer-circle" id="timer-text">99</div>
+        <div class="season-stamp" id="season-text">봄 · 滿花方暢</div>
       </div>
 
-      <!-- 2P / Opponent Health & SP HUD -->
-      <div class="fighter-hud p2">
-        <div class="hud-info">
-          <span class="char-badge" id="p2-badge">파천의 패도전사</span>
-          <span class="fighter-name" id="p2-name">백호</span>
+      <!-- 2P HUD (우측) -->
+      <div class="hud-player p2">
+        <div class="player-profile-row">
+          <div class="seal-avatar" id="avatar-p2">虎</div>
+          <div class="name-title-box">
+            <div class="player-name-kr">
+              <span style="font-size: 11px; background: #6c584c; color:#fff; padding:1px 5px; border-radius:3px;">2P</span>
+              <span id="name-p2">백호</span>
+            </div>
+            <div class="player-title-tag" id="title-p2">뇌전 백호도투</div>
+          </div>
         </div>
-        <div class="hp-container">
-          <div class="hp-lag" id="p2-hp-lag" style="width: 100%;"></div>
-          <div class="hp-bar" id="p2-hp-bar" style="width: 100%;"></div>
+        <div class="bar-frame">
+          <div class="hp-fill" id="hp-p2"></div>
+          <div class="hp-text" id="hp-txt-p2">1000 / 1000</div>
         </div>
-        <div class="sp-container">
-          <div class="sp-bar" id="p2-sp-bar" style="width: 0%;"></div>
+        <div class="sp-frame">
+          <div class="sp-fill" id="sp-p2"></div>
+          <div class="sp-tag">기력 (SP)</div>
         </div>
       </div>
+
+      <!-- 콤보 카운트 표시 -->
+      <div class="combo-display" id="combo-p1">0 콤보!</div>
+      <div class="combo-display" id="combo-p2">0 콤보!</div>
     </div>
 
-    <!-- Lobby / Character Selection Screen -->
-    <div id="select-screen">
-      <div class="select-header">
-        <h1 class="game-title">사방신 무림전 (四方神 武林傳)</h1>
-        <p class="select-subtitle">1v1 ROOM CODE MULTIPLAYER WUXIA FIGHTING</p>
+    <!-- UI LAYER: 메인 로비 / 캐릭터 선택창 -->
+    <div id="select-screen" class="ui-layer">
+      <div class="lobby-header">
+        <h1 class="game-logo-title">사방신 무림전</h1>
+        <p class="game-subtitle">四方神 武林傳 · 정통 수묵담채화 메이플 SD 대전</p>
       </div>
 
-      <!-- 4 Gods Character Cards -->
-      <div class="cards-container">
+      <!-- 4인 캐릭터 카드 그리드 -->
+      <div class="char-card-grid">
         <!-- 1. 청룡 -->
-        <div class="char-card selected-p1" data-char="BLUE_DRAGON" style="--card-color: #00f3ff; --card-glow: rgba(0, 243, 255, 0.45);">
-          <canvas class="char-avatar-canvas"></canvas>
+        <div class="char-card selected" data-char="BLUE_DRAGON" style="--card-color: #0096c7;">
+          <canvas class="char-avatar-canvas" id="canvas-card-BLUE_DRAGON"></canvas>
           <div class="char-name-kr">청룡 (靑龍)</div>
-          <div class="char-title">신속의 청도검객</div>
-          <div class="char-tagline">비검 질풍검격 & 전방위 화면 종단 청룡참</div>
+          <div class="char-title">질풍 청룡검객</div>
+          <div class="char-tagline">날렵한 신법과 예리한 검기, 질풍의 연계 3단 베기</div>
           <div class="stat-group">
-            <div class="stat-row"><span>속도 (SPD)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 100%;"></div></div></div>
-            <div class="stat-row"><span>위력 (ATK)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 60%;"></div></div></div>
-            <div class="stat-row"><span>사거리 (RNG)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 80%;"></div></div></div>
-            <div class="stat-row"><span>방어력 (DEF)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 50%;"></div></div></div>
+            <div class="stat-row"><span>속도 (SPD)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 90%;"></div></div></div>
+            <div class="stat-row"><span>공격 (ATK)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 75%;"></div></div></div>
+            <div class="stat-row"><span>사거리 (RNG)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 70%;"></div></div></div>
+            <div class="stat-row"><span>방어 (DEF)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 60%;"></div></div></div>
           </div>
         </div>
 
         <!-- 2. 백호 -->
-        <div class="char-card" data-char="WHITE_TIGER" style="--card-color: #ffd700; --card-glow: rgba(255, 215, 0, 0.45);">
-          <canvas class="char-avatar-canvas"></canvas>
+        <div class="char-card" data-char="WHITE_TIGER" style="--card-color: #f77f00;">
+          <canvas class="char-avatar-canvas" id="canvas-card-WHITE_TIGER"></canvas>
           <div class="char-name-kr">백호 (白虎)</div>
-          <div class="char-title">파천의 패도전사</div>
-          <div class="char-tagline">백호대도 가드 파괴 & 돌산 뇌명 분쇄벽</div>
+          <div class="char-title">뇌전 백호도투</div>
+          <div class="char-tagline">묵직한 대도와 벼락의 힘, 가드를 부수는 지진타격</div>
           <div class="stat-group">
-            <div class="stat-row"><span>속도 (SPD)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 40%;"></div></div></div>
-            <div class="stat-row"><span>위력 (ATK)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 100%;"></div></div></div>
-            <div class="stat-row"><span>사거리 (RNG)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 60%;"></div></div></div>
-            <div class="stat-row"><span>방어력 (DEF)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 90%;"></div></div></div>
+            <div class="stat-row"><span>속도 (SPD)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 50%;"></div></div></div>
+            <div class="stat-row"><span>공격 (ATK)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 100%;"></div></div></div>
+            <div class="stat-row"><span>사거리 (RNG)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 80%;"></div></div></div>
+            <div class="stat-row"><span>방어 (DEF)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 85%;"></div></div></div>
           </div>
         </div>
 
         <!-- 3. 주작 -->
-        <div class="char-card" data-char="VERMILION_BIRD" style="--card-color: #ff2a4b; --card-glow: rgba(255, 42, 75, 0.45);">
-          <canvas class="char-avatar-canvas"></canvas>
+        <div class="char-card" data-char="VERMILION_BIRD" style="--card-color: #e63946;">
+          <canvas class="char-avatar-canvas" id="canvas-card-VERMILION_BIRD"></canvas>
           <div class="char-name-kr">주작 (朱雀)</div>
-          <div class="char-title">불멸의 선무가</div>
-          <div class="char-tagline">공중 2단 도약 & 맵 전체 유성우 성화폭격</div>
+          <div class="char-title">화무 주작비선</div>
+          <div class="char-tagline">화려한 깃털 옷과 철선, 공중 2단 점프와 불꽃 탄막</div>
           <div class="stat-group">
-            <div class="stat-row"><span>속도 (SPD)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 80%;"></div></div></div>
-            <div class="stat-row"><span>위력 (ATK)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 70%;"></div></div></div>
+            <div class="stat-row"><span>속도 (SPD)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 85%;"></div></div></div>
+            <div class="stat-row"><span>공격 (ATK)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 70%;"></div></div></div>
             <div class="stat-row"><span>사거리 (RNG)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 90%;"></div></div></div>
-            <div class="stat-row"><span>방어력 (DEF)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 40%;"></div></div></div>
+            <div class="stat-row"><span>방어 (DEF)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 45%;"></div></div></div>
           </div>
         </div>
 
         <!-- 4. 현무 -->
-        <div class="char-card" data-char="BLACK_TORTOISE" style="--card-color: #3a7afe; --card-glow: rgba(58, 122, 254, 0.45);">
-          <canvas class="char-avatar-canvas"></canvas>
+        <div class="char-card" data-char="BLACK_TORTOISE" style="--card-color: #212529;">
+          <canvas class="char-avatar-canvas" id="canvas-card-BLACK_TORTOISE"></canvas>
           <div class="char-name-kr">현무 (玄武)</div>
-          <div class="char-title">심연의 흑도사</div>
-          <div class="char-tagline">사슬낫 견인 & 화면을 휩쓰는 묵류 대해일</div>
+          <div class="char-title">현무 흑도사</div>
+          <div class="char-tagline">사슬낫의 중거리 견인 및 철벽의 결계 카운터 도술</div>
           <div class="stat-group">
-            <div class="stat-row"><span>속도 (SPD)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 40%;"></div></div></div>
-            <div class="stat-row"><span>위력 (ATK)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 70%;"></div></div></div>
+            <div class="stat-row"><span>속도 (SPD)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 45%;"></div></div></div>
+            <div class="stat-row"><span>공격 (ATK)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 75%;"></div></div></div>
             <div class="stat-row"><span>사거리 (RNG)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 100%;"></div></div></div>
-            <div class="stat-row"><span>방어력 (DEF)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 100%;"></div></div></div>
+            <div class="stat-row"><span>방어 (DEF)</span><div class="stat-bar-bg"><div class="stat-bar-fill" style="width: 95%;"></div></div></div>
           </div>
         </div>
       </div>
 
-      <!-- Footer & Controls Preview -->
+      <!-- 하단 조작키 가이드 및 버튼 -->
       <div class="select-footer">
         <div class="controls-preview">
-          <div><strong>1P 무공 조작계 (모든 플레이어 공통):</strong></div>
+          <div><strong>1P 조작키 가이드 (메이플풍 3단 콤보):</strong></div>
           <div>
             <span class="key-pill">A</span><span class="key-pill">D</span> 이동 · 
-            <span class="key-pill">W</span> 도약 · 
-            <span class="key-pill">S</span> 방어/수경 · 
-            <span class="key-pill">J</span> 3단 평타 콤보 · 
-            <span class="key-pill">K</span> 무기 특수기 · 
-            <span class="key-pill">L</span> 사방신 궁극기 (SP 100%)
+            <span class="key-pill">W</span> 점프 (주작 2단점프) · 
+            <span class="key-pill">S</span> 숙이기 / 방어 · 
+            <span class="key-pill">J</span> 3단 콤보 (1타 찌르기 → 2타 회전 횡베기 → 3타 도약 강공격) · 
+            <span class="key-pill">K</span> 특수 스킬 · 
+            <span class="key-pill">L</span> 풀스크린 궁극기 (SP 100%)
           </div>
         </div>
 
-        <!-- Action Buttons -->
+        <!-- 액션 버튼 -->
         <div class="room-actions">
-          <button class="btn-wuxia" id="btn-practice-mode">혼자 연습 (vs AI)</button>
+          <button class="btn-wuxia" id="btn-practice-mode">연습 모드 (vs AI)</button>
           <button class="btn-wuxia" id="btn-join-modal">방 참가하기</button>
-          <button class="btn-wuxia primary" id="btn-create-room">방 만들기 (룸 코드)</button>
+          <button class="btn-wuxia primary" id="btn-create-room">방 만들기 (P2P)</button>
         </div>
       </div>
     </div>
 
-    <!-- Modal 1: Create Room (Host) -->
+    <!-- 모달 1: 방 만들기 (Host) -->
     <div id="modal-create-room" class="modal-overlay">
       <div class="modal-content">
-        <h3 class="modal-title">대전 룸 생성 완료</h3>
-        <p class="modal-desc">아래 6자리 룸 코드를 복사하여 대전할 상대에게 알려주세요.</p>
+        <h3 class="modal-title">대전 방 생성 완료</h3>
+        <p class="modal-desc">아래의 6자리 방 코드를 복사하여 상대방에게 알려주세요.<br>상대방이 접속하면 대전이 시작됩니다.</p>
         <div class="room-code-display" id="display-room-code">------</div>
-        <div class="status-waiting">상대방의 입장을 기다리는 중...</div>
+        <div class="status-waiting">
+          <span style="animation: spin 1s infinite linear; display:inline-block;">⌛</span>
+          상대방의 참가를 기다리는 중...
+        </div>
         <div class="result-buttons" style="justify-content: center;">
           <button class="btn-wuxia" id="btn-copy-code">코드 복사</button>
           <button class="btn-wuxia" id="btn-cancel-create">취소</button>
@@ -757,11 +855,11 @@
       </div>
     </div>
 
-    <!-- Modal 2: Join Room (Guest) -->
+    <!-- 모달 2: 방 참가하기 (Guest) -->
     <div id="modal-join-room" class="modal-overlay">
       <div class="modal-content">
-        <h3 class="modal-title">대전 룸 참가</h3>
-        <p class="modal-desc">상대방이 생성한 6자리 룸 코드를 입력하세요.</p>
+        <h3 class="modal-title">대전 방 참가</h3>
+        <p class="modal-desc">전달받은 6자리 방 코드를 입력하세요.</p>
         <input type="text" id="input-join-code" class="room-code-input" maxlength="6" placeholder="A7X9P2">
         <div id="join-status-text" class="status-waiting"></div>
         <div class="result-buttons" style="justify-content: center;">
@@ -771,1190 +869,1878 @@
       </div>
     </div>
 
-    <!-- Match Result / Victory Screen -->
+    <!-- 대전 결과 화면 (승리/패배) -->
     <div id="result-screen">
       <h2 class="victory-title" id="victory-title">승리 (VICTORY)</h2>
-      <p class="victory-subtitle" id="victory-subtitle">청룡 승리!</p>
+      <p class="victory-subtitle" id="victory-subtitle">청룡이 무림의 패자가 되었습니다!</p>
       <div class="result-buttons">
-        <button class="btn-wuxia primary" id="btn-rematch">재대결 요청</button>
-        <button class="btn-wuxia" id="btn-to-select">대기실로 이동</button>
+        <button class="btn-wuxia primary" id="btn-rematch">다시 대전</button>
+        <button class="btn-wuxia" id="btn-to-select">캐릭터 선택으로</button>
       </div>
     </div>
   </div>
 
   <!-- =======================================================
-       INLINED JAVASCRIPT GAME ENGINE (Vercel 배포 안전 내장)
+       게임 엔진 스크립트 (INLINED JAVASCRIPT)
   ======================================================== -->
   <script>
     /* =====================================================
-       1. CONSTANTS & CONFIGURATION
+       0. BROWSER COMPATIBILITY POLYFILL (ctx.roundRect)
+    ===================================================== */
+    if (!CanvasRenderingContext2D.prototype.roundRect) {
+      CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, radii) {
+        if (!radii) radii = 0;
+        let r = typeof radii === 'number' ? radii : (radii[0] || 0);
+        r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+        this.beginPath();
+        this.moveTo(x + r, y);
+        this.arcTo(x + w, y, x + w, y + h, r);
+        this.arcTo(x + w, y + h, x, y + h, r);
+        this.arcTo(x, y + h, x, y, r);
+        this.arcTo(x, y, x + w, y, r);
+        this.closePath();
+        return this;
+      };
+    }
+
+    /* =====================================================
+       A. CONSTANTS & SYSTEM CONFIGURATION
     ===================================================== */
     const SF = {
-      INTERNAL_W: 320,  // Retro pixel buffer resolution
-      INTERNAL_H: 180,
-      FLOOR_Y: 146,
-      ARENA_LEFT: 14,
-      ARENA_RIGHT: 306,
-      GRAVITY: 0.52,
-      MAX_FALL_SPEED: 8.5,
+      WIDTH: 1280,
+      HEIGHT: 720,
+      FLOOR_Y: 580,
+      ARENA_LEFT: 80,
+      ARENA_RIGHT: 1200,
+      GRAVITY: 0.85,
+      MAX_FALL_SPEED: 18,
       ROUND_TIME: 99,
 
       SEASONS: {
-        SPRING: { id: 'SPRING', name: '봄 · 낙화유수', sky: '#181024', moon: '#ffeef5', accent: '#ff80ab' },
-        SUMMER: { id: 'SUMMER', name: '여름 · 청죽녹음', sky: '#0a1e1a', moon: '#e0f7fa', accent: '#00e676' },
-        AUTUMN: { id: 'AUTUMN', name: '가을 · 만산홍엽', sky: '#220e0a', moon: '#fff3e0', accent: '#ff7043' },
-        WINTER: { id: 'WINTER', name: '겨울 · 설산빙벽', sky: '#0c1626', moon: '#e3f2fd', accent: '#90caf9' }
+        SPRING: {
+          id: 'SPRING', name: '봄 · 만화방창 (滿花方暢)',
+          hanji: '#f6f1e5', wash: 'rgba(235, 215, 205, 0.45)', mist: '#e8d5c4',
+          mountainWash: '#3a444a', mountainLight: 'rgba(58, 68, 74, 0.25)',
+          leaves: '#e27396', willow: '#588157', gateStone: '#4a443b'
+        },
+        SUMMER: {
+          id: 'SUMMER', name: '여름 · 청록농음 (靑綠濃陰)',
+          hanji: '#f0f5ec', wash: 'rgba(180, 220, 195, 0.4)', mist: '#c8e0d0',
+          mountainWash: '#283618', mountainLight: 'rgba(40, 54, 24, 0.25)',
+          leaves: '#606c38', willow: '#2d6a4f', gateStone: '#3d4035'
+        },
+        AUTUMN: {
+          id: 'AUTUMN', name: '가을 · 만홍단풍 (滿紅丹楓)',
+          hanji: '#f9f1e0', wash: 'rgba(230, 180, 150, 0.4)', mist: '#eed4be',
+          mountainWash: '#5c3a21', mountainLight: 'rgba(92, 58, 33, 0.25)',
+          leaves: '#bc4749', willow: '#c46210', gateStone: '#4d3d34'
+        },
+        WINTER: {
+          id: 'WINTER', name: '겨울 · 백설한산 (白雪寒山)',
+          hanji: '#edf2f7', wash: 'rgba(200, 215, 230, 0.45)', mist: '#d3e0ea',
+          mountainWash: '#1b263b', mountainLight: 'rgba(27, 38, 59, 0.25)',
+          leaves: '#ffffff', willow: '#415a77', gateStone: '#303846'
+        }
       },
 
       CHARACTERS: {
         BLUE_DRAGON: {
-          id: 'BLUE_DRAGON', nameKr: '청룡', title: '신속의 청도검객',
-          color: '#00f3ff', robe: '#005577', trim: '#ffffff', skin: '#f5c999', hair: '#0a0f1d',
-          speed: 2.5, jump: -7.6, maxHp: 950, defense: 0.95, canDoubleJump: false,
-          lightDmg: 38, heavyDmg: 85, weapon: 'SWORD'
+          id: 'BLUE_DRAGON', nameKr: '청룡', title: '질풍 청룡검객', avatar: '龍',
+          color: '#0096c7', robe: '#0077b6', sash: '#90e0ef', skin: '#fed8b1', hair: '#1b1b2f',
+          speed: 6.8, jump: -17.5, maxHp: 1000, defense: 0.95, canDoubleJump: false,
+          lightDmg: 38, spinDmg: 48, heavyDmg: 95, weapon: 'SWORD'
         },
         WHITE_TIGER: {
-          id: 'WHITE_TIGER', nameKr: '백호', title: '파천의 패도전사',
-          color: '#ffd700', robe: '#332211', trim: '#ffd700', skin: '#e2ba8f', hair: '#ffffff',
-          speed: 1.7, jump: -6.9, maxHp: 1150, defense: 0.85, canDoubleJump: false,
-          lightDmg: 55, heavyDmg: 130, guardBreak: true, weapon: 'AXE'
+          id: 'WHITE_TIGER', nameKr: '백호', title: '뇌전 백호도투', avatar: '虎',
+          color: '#f77f00', robe: '#4a3b32', sash: '#ffd166', skin: '#fed0bb', hair: '#f8f9fa',
+          speed: 5.2, jump: -16.2, maxHp: 1150, defense: 0.85, canDoubleJump: false,
+          lightDmg: 48, spinDmg: 62, heavyDmg: 135, weapon: 'AXE'
         },
         VERMILION_BIRD: {
-          id: 'VERMILION_BIRD', nameKr: '주작', title: '불멸의 선무가',
-          color: '#ff2a4b', robe: '#551122', trim: '#ff9900', skin: '#fce0c5', hair: '#2a050d',
-          speed: 2.2, jump: -7.2, maxHp: 900, defense: 1.0, canDoubleJump: true,
-          lightDmg: 42, heavyDmg: 95, weapon: 'FAN'
+          id: 'VERMILION_BIRD', nameKr: '주작', title: '화무 주작비선', avatar: '雀',
+          color: '#e63946', robe: '#9b2226', sash: '#f4a261', skin: '#fceade', hair: '#3a0ca3',
+          speed: 6.4, jump: -16.8, maxHp: 900, defense: 1.0, canDoubleJump: true,
+          lightDmg: 40, spinDmg: 52, heavyDmg: 90, weapon: 'FAN'
         },
         BLACK_TORTOISE: {
-          id: 'BLACK_TORTOISE', nameKr: '현무', title: '심연의 흑도사',
-          color: '#3a7afe', robe: '#101728', trim: '#3a7afe', skin: '#d8b68f', hair: '#05070c',
-          speed: 1.6, jump: -6.8, maxHp: 1200, defense: 0.80, canDoubleJump: false,
-          lightDmg: 45, heavyDmg: 75, weapon: 'CHAIN'
+          id: 'BLACK_TORTOISE', nameKr: '현무', title: '현무 흑도사', avatar: '武',
+          color: '#212529', robe: '#14213d', sash: '#457b9d', skin: '#ecd1b4', hair: '#0b090a',
+          speed: 4.8, jump: -15.8, maxHp: 1200, defense: 0.80, canDoubleJump: false,
+          lightDmg: 44, spinDmg: 56, heavyDmg: 85, weapon: 'CHAIN'
         }
       }
     };
 
     /* =====================================================
-       2. PROCEDURAL SOUND SYNTHESIZER (Web Audio API)
+       B. WEB AUDIO PROCEDURAL SOUND ENGINE
     ===================================================== */
-    class SoundEngine {
-      constructor() {
-        this.ctx = null;
-      }
+    const Sound = {
+      ctx: null,
       init() {
         if (!this.ctx) {
           const AudioContext = window.AudioContext || window.webkitAudioContext;
-          this.ctx = new AudioContext();
+          if (AudioContext) this.ctx = new AudioContext();
         }
-        if (this.ctx.state === 'suspended') this.ctx.resume();
-      }
-      playHit(isHeavy = false) {
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      },
+      playTone(freq, type, duration, gainStart = 0.25, gainEnd = 0.01) {
         if (!this.ctx) return;
-        const t = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = isHeavy ? 'sawtooth' : 'triangle';
-        osc.frequency.setValueAtTime(isHeavy ? 180 : 340, t);
-        osc.frequency.exponentialRampToValueAtTime(30, t + (isHeavy ? 0.2 : 0.08));
-        gain.gain.setValueAtTime(isHeavy ? 0.4 : 0.25, t);
-        gain.gain.exponentialRampToValueAtTime(0.01, t + (isHeavy ? 0.2 : 0.08));
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(t);
-        osc.stop(t + (isHeavy ? 0.2 : 0.08));
-      }
-      playSlash() {
-        if (!this.ctx) return;
-        const t = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(800, t);
-        osc.frequency.exponentialRampToValueAtTime(200, t + 0.12);
-        gain.gain.setValueAtTime(0.2, t);
-        gain.gain.exponentialRampToValueAtTime(0.01, t + 0.12);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(t);
-        osc.stop(t + 0.12);
-      }
-      playUltimate() {
-        if (!this.ctx) return;
-        const t = this.ctx.currentTime;
-        [220, 277, 330, 440].forEach((freq, idx) => {
+        try {
           const osc = this.ctx.createOscillator();
           const gain = this.ctx.createGain();
-          osc.type = 'square';
-          osc.frequency.setValueAtTime(freq, t);
-          osc.frequency.exponentialRampToValueAtTime(freq * 1.8, t + 0.4);
-          gain.gain.setValueAtTime(0.12 / (idx + 1), t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(gainStart, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(gainEnd, this.ctx.currentTime + duration);
           osc.connect(gain);
           gain.connect(this.ctx.destination);
-          osc.start(t);
-          osc.stop(t + 0.45);
-        });
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch (e) {}
+      },
+      playNoise(duration, gainStart = 0.3) {
+        if (!this.ctx) return;
+        try {
+          const bufferSize = this.ctx.sampleRate * duration;
+          const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = buffer;
+          const gain = this.ctx.createGain();
+          gain.gain.setValueAtTime(gainStart, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+          noise.connect(gain);
+          gain.connect(this.ctx.destination);
+          noise.start();
+        } catch (e) {}
+      },
+      jump() { this.playTone(320, 'sine', 0.15, 0.2, 0.01); },
+      thrust() {
+        this.playTone(450, 'triangle', 0.12, 0.25, 0.01);
+        this.playNoise(0.08, 0.15);
+      },
+      spin() {
+        if (!this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(260, this.ctx.currentTime);
+          osc.frequency.linearRampToValueAtTime(520, this.ctx.currentTime + 0.18);
+          gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.2);
+        } catch(e) {}
+      },
+      slam() {
+        this.playTone(120, 'sine', 0.3, 0.4, 0.01);
+        this.playNoise(0.25, 0.35);
+      },
+      special() {
+        this.playTone(550, 'square', 0.25, 0.25, 0.01);
+        this.playNoise(0.18, 0.2);
+      },
+      ultimate() {
+        this.playTone(80, 'sawtooth', 0.8, 0.5, 0.01);
+        this.playNoise(0.6, 0.5);
+      },
+      hit(heavy = false) {
+        if (heavy) {
+          this.playTone(110, 'triangle', 0.22, 0.4, 0.01);
+          this.playNoise(0.2, 0.35);
+        } else {
+          this.playTone(280, 'square', 0.1, 0.2, 0.01);
+          this.playNoise(0.08, 0.15);
+        }
+      },
+      guard() {
+        this.playTone(800, 'triangle', 0.12, 0.3, 0.01);
       }
-    }
-    const Sound = new SoundEngine();
+    };
 
     /* =====================================================
-       3. UNIFIED INPUT MANAGER (W, A, S, D, J, K, L)
+       C. INPUT MANAGER (UNIFIED 1P CONTROLS)
     ===================================================== */
-    class InputManager {
-      constructor() {
-        this.down = new Set();
-        this.pressed = new Set();
+    const Input = {
+      keys: {},
+      justPressed: {},
+      init() {
         window.addEventListener('keydown', (e) => {
-          const keys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyJ', 'KeyK', 'KeyL', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
-          if (keys.includes(e.code)) e.preventDefault();
-          if (!this.down.has(e.code)) this.pressed.add(e.code);
-          this.down.add(e.code);
+          Sound.init();
+          const k = e.key.toLowerCase();
+          if (!this.keys[k]) this.justPressed[k] = true;
+          this.keys[k] = true;
+          if (['w','a','s','d','j','k','l',' '].includes(k)) e.preventDefault();
         });
         window.addEventListener('keyup', (e) => {
-          this.down.delete(e.code);
+          this.keys[e.key.toLowerCase()] = false;
         });
-      }
-      flush() { this.pressed.clear(); }
-      isDown(code) { return this.down.has(code); }
-      isPressed(code) { return this.pressed.has(code); }
-    }
-    const Input = new InputManager();
+      },
+      isDown(key) { return !!this.keys[key.toLowerCase()]; },
+      isJustPressed(key) {
+        const k = key.toLowerCase();
+        if (this.justPressed[k]) {
+          this.justPressed[k] = false;
+          return true;
+        }
+        return false;
+      },
+      clear() { this.justPressed = {}; }
+    };
 
     /* =====================================================
-       4. P2P NETWORK MANAGER (PeerJS WebRTC DataChannel)
+       D. JOSEON STAGE RENDERER (수묵담채화 한지 배경)
     ===================================================== */
-    class NetworkManager {
-      constructor() {
-        this.peer = null;
-        this.conn = null;
-        this.isHost = false;
-        this.roomCode = null;
-        this.isConnected = false;
-
-        this.peerConfig = {
-          debug: 1,
-          config: {
-            iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:stun1.l.google.com:19302' },
-              { urls: 'stun:stun.cloudflare.com:3478' }
-            ]
-          }
-        };
-
-        this.onConnected = null;
-        this.onData = null;
-        this.onDisconnected = null;
-        this.onError = null;
-      }
-      generateCode() {
-        const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let res = '';
-        for (let i = 0; i < 6; i++) res += c[Math.floor(Math.random() * c.length)];
-        return res;
-      }
-      createRoom(cb) {
-        this.cleanup();
-        this.isHost = true;
-        this.roomCode = this.generateCode();
-        const peerId = `murim-px-${this.roomCode}`;
-        try {
-          this.peer = new Peer(peerId, this.peerConfig);
-          this.peer.on('open', () => { if (cb) cb(this.roomCode); });
-          this.peer.on('connection', (c) => {
-            this.conn = c;
-            this.setupConn();
-          });
-          this.peer.on('error', (err) => {
-            if (err.type === 'unavailable-id') this.createRoom(cb);
-            else if (this.onError) this.onError(err.message || err.type);
-          });
-        } catch (e) { if (this.onError) this.onError(e); }
-      }
-      joinRoom(code, cb) {
-        this.cleanup();
-        this.isHost = false;
-        this.roomCode = code.trim().toUpperCase();
-        const hostPeerId = `murim-px-${this.roomCode}`;
-        try {
-          this.peer = new Peer(this.peerConfig);
-          this.peer.on('open', () => {
-            this.conn = this.peer.connect(hostPeerId, { reliable: true });
-            this.conn.on('open', () => {
-              this.setupConn();
-              if (cb) cb();
-            });
-          });
-          this.peer.on('error', (err) => { if (this.onError) this.onError('방을 찾을 수 없습니다.'); });
-        } catch (e) { if (this.onError) this.onError(e); }
-      }
-      setupConn() {
-        this.isConnected = true;
-        this.conn.on('data', (d) => { if (this.onData) this.onData(d); });
-        this.conn.on('close', () => {
-          this.isConnected = false;
-          if (this.onDisconnected) this.onDisconnected();
-        });
-        if (this.onConnected) this.onConnected();
-      }
-      send(pkg) {
-        if (this.conn && this.isConnected) {
-          try { this.conn.send(pkg); } catch(e){}
-        }
-      }
-      cleanup() {
-        if (this.conn) { try { this.conn.close(); } catch(e){} this.conn = null; }
-        if (this.peer) { try { this.peer.destroy(); } catch(e){} this.peer = null; }
-        this.isConnected = false;
-      }
-    }
-    const Network = new NetworkManager();
-
-    /* =====================================================
-       5. FULLSCREEN PIXEL ULTIMATE & WEATHER FX
-    ===================================================== */
-    class PixelFXManager {
-      constructor() {
-        this.particles = [];
-        this.shake = 0;
-        this.activeUlt = null;
-      }
-      reset() {
-        this.particles = [];
-        this.shake = 0;
-        this.activeUlt = null;
-      }
-      addShake(amt) { this.shake = Math.min(this.shake + amt, 10); }
-
-      triggerBlueDragonUlt(owner) {
-        this.activeUlt = { type: 'BLUE_DRAGON', timer: 75, owner };
-        this.addShake(8);
-        Sound.playUltimate();
-      }
-      triggerVermilionBirdUlt(owner) {
-        this.activeUlt = { type: 'VERMILION_BIRD', timer: 80, owner };
-        this.addShake(6);
-        Sound.playUltimate();
-      }
-      triggerBlackTortoiseUlt(owner) {
-        this.activeUlt = { type: 'BLACK_TORTOISE', timer: 70, waveX: owner.facing === 1 ? -40 : 360, owner };
-        this.addShake(7);
-        Sound.playUltimate();
-      }
-      triggerWhiteTigerUlt(owner) {
-        this.activeUlt = { type: 'WHITE_TIGER', timer: 75, pillars: [40, 90, 150, 210, 270], owner };
-        this.addShake(10);
-        Sound.playUltimate();
-      }
-
-      spawnHitSparks(x, y, color) {
-        for (let i = 0; i < 8; i++) {
-          this.particles.push({
-            x, y,
-            vx: (Math.random() - 0.5) * 4,
-            vy: (Math.random() - 0.5) * 4 - 1,
-            color, size: 2, life: 10 + Math.floor(Math.random() * 8)
-          });
-        }
-      }
-
-      spawnWeather(seasonId) {
-        if (this.particles.length > 50) return;
-        const x = Math.random() * (SF.INTERNAL_W + 20) - 10;
-        if (seasonId === 'SPRING') {
-          this.particles.push({ x, y: -4, vx: 0.5, vy: 0.8, color: '#ffb7c5', size: 2, life: 220 });
-        } else if (seasonId === 'SUMMER') {
-          const fx = Math.random() * SF.INTERNAL_W;
-          this.particles.push({ x: fx, y: 70 + Math.random() * 80, vx: 0.1, vy: -0.1, color: '#00e676', size: 1, life: 150 });
-        } else if (seasonId === 'AUTUMN') {
-          const colors = ['#e64a19', '#ff7043', '#ffb300'];
-          this.particles.push({ x, y: -4, vx: 0.8, vy: 1.1, color: colors[Math.floor(Math.random() * colors.length)], size: 2, life: 180 });
-        } else if (seasonId === 'WINTER') {
-          this.particles.push({ x, y: -4, vx: -0.3, vy: 1.2, color: '#ffffff', size: 1.5, life: 160 });
-        }
-      }
-
-      update(oppFighter) {
-        if (this.shake > 0.2) this.shake *= 0.88;
-        else this.shake = 0;
-
-        for (let i = this.particles.length - 1; i >= 0; i--) {
-          const p = this.particles[i];
-          p.x += p.vx;
-          p.y += p.vy;
-          p.life--;
-          if (p.life <= 0 || p.y > SF.INTERNAL_H + 5) this.particles.splice(i, 1);
-        }
-
-        if (this.activeUlt) {
-          this.activeUlt.timer--;
-          const u = this.activeUlt;
-
-          if (u.timer === 45 && oppFighter && !oppFighter.isDead) {
-            oppFighter.takeDamage(260, 35, { x: 7, y: -6 });
-            this.addShake(8);
-          }
-
-          if (u.type === 'BLACK_TORTOISE') {
-            u.waveX += u.owner.facing === 1 ? 6.5 : -6.5;
-          }
-
-          if (u.timer <= 0) this.activeUlt = null;
-        }
-      }
-
-      draw(ctx) {
-        for (const p of this.particles) {
-          ctx.fillStyle = p.color;
-          ctx.fillRect(Math.floor(p.x), Math.floor(p.y), p.size, p.size);
-        }
-
-        if (this.activeUlt) {
-          const u = this.activeUlt;
-          ctx.save();
-
-          if (u.type === 'BLUE_DRAGON') {
-            ctx.fillStyle = (u.timer % 4 < 2) ? 'rgba(0, 243, 255, 0.2)' : 'rgba(0, 0, 0, 0.4)';
-            ctx.fillRect(0, 0, SF.INTERNAL_W, SF.INTERNAL_H);
-
-            const sliceProgress = (75 - u.timer) * 8;
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 45, sliceProgress, 4);
-            ctx.fillRect(SF.INTERNAL_W - sliceProgress, 95, sliceProgress, 6);
-            ctx.fillRect(0, 130, sliceProgress * 1.2, 5);
-
-            ctx.fillStyle = '#00f3ff';
-            ctx.fillRect(0, 43, sliceProgress, 8);
-            ctx.fillRect(SF.INTERNAL_W - sliceProgress, 93, sliceProgress, 10);
-
-          } else if (u.type === 'VERMILION_BIRD') {
-            ctx.fillStyle = 'rgba(255, 42, 75, 0.25)';
-            ctx.fillRect(0, 0, SF.INTERNAL_W, SF.INTERNAL_H);
-
-            for (let i = 0; i < 18; i++) {
-              const mx = (i * 22 + (75 - u.timer) * 7) % (SF.INTERNAL_W + 40) - 20;
-              const my = ((75 - u.timer) * 9 + i * 15) % SF.INTERNAL_H;
-              ctx.fillStyle = '#ff2a4b';
-              ctx.fillRect(mx, my, 4, 8);
-              ctx.fillStyle = '#ffd700';
-              ctx.fillRect(mx + 1, my - 2, 2, 4);
-            }
-            ctx.fillStyle = '#ff5500';
-            ctx.fillRect(0, SF.FLOOR_Y - 2, SF.INTERNAL_W, 4);
-
-          } else if (u.type === 'BLACK_TORTOISE') {
-            ctx.fillStyle = 'rgba(10, 20, 45, 0.4)';
-            ctx.fillRect(0, 0, SF.INTERNAL_W, SF.INTERNAL_H);
-
-            const wx = u.waveX;
-            ctx.fillStyle = '#1e88e5';
-            ctx.fillRect(wx - 20, 30, 45, SF.INTERNAL_H);
-            ctx.fillStyle = '#00f3ff';
-            ctx.fillRect(wx - 10, 20, 25, SF.INTERNAL_H);
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(wx - 5, 15, 15, 8);
-
-          } else if (u.type === 'WHITE_TIGER') {
-            ctx.fillStyle = (u.timer % 6 < 2) ? 'rgba(255, 255, 255, 0.35)' : 'rgba(0, 0, 0, 0.3)';
-            ctx.fillRect(0, 0, SF.INTERNAL_W, SF.INTERNAL_H);
-
-            u.pillars.forEach((px, idx) => {
-              const pHeight = Math.min(80, (75 - u.timer) * 4 + idx * 8);
-              ctx.fillStyle = '#455a64';
-              ctx.fillRect(px - 10, SF.FLOOR_Y - pHeight, 20, pHeight);
-              ctx.fillStyle = '#78909c';
-              ctx.fillRect(px - 6, SF.FLOOR_Y - pHeight, 12, pHeight);
-
-              if (u.timer > 30 && u.timer < 60) {
-                ctx.fillStyle = '#ffd700';
-                ctx.fillRect(px - 2, 0, 4, SF.FLOOR_Y - pHeight);
-              }
-            });
-          }
-
-          ctx.restore();
-        }
-      }
-    }
-    const FX = new PixelFXManager();
-
-    /* =====================================================
-       6. PIXEL FIGHTER CLASS
-    ===================================================== */
-    class PixelFighter {
-      constructor(charConfig, isP1 = true) {
-        this.char = charConfig;
-        this.isP1 = isP1;
-        this.x = isP1 ? 70 : 250;
-        this.y = SF.FLOOR_Y;
-        this.vx = 0;
-        this.vy = 0;
-        this.facing = isP1 ? 1 : -1;
-
-        this.hp = charConfig.maxHp;
-        this.maxHp = charConfig.maxHp;
-        this.sp = 0;
-        this.isDead = false;
-
-        this.state = 'IDLE';
-        this.timer = 0;
-        this.duration = 0;
-        this.comboStep = 0;
-        this.animTick = 0;
-        this.isGrounded = true;
-        this.jumpCount = 0;
-        this.maxJumps = charConfig.canDoubleJump ? 2 : 1;
-
-        this.cooldownSkill = 0;
-        this.opponent = null;
-      }
-
-      reset(x, facing) {
-        this.x = x;
-        this.y = SF.FLOOR_Y;
-        this.vx = 0;
-        this.vy = 0;
-        this.facing = facing;
-        this.hp = this.maxHp;
-        this.sp = 0;
-        this.isDead = false;
-        this.state = 'IDLE';
-        this.timer = 0;
-        this.duration = 0;
-        this.comboStep = 0;
-        this.jumpCount = 0;
-        this.cooldownSkill = 0;
-      }
-
-      setState(st, dur = 0) {
-        this.state = st;
-        this.timer = 0;
-        this.duration = dur;
-      }
-
-      update() {
-        this.animTick++;
-        if (this.cooldownSkill > 0) this.cooldownSkill--;
-
-        if (this.duration > 0) {
-          this.timer++;
-          if (this.timer >= this.duration) {
-            this.state = this.isGrounded ? 'IDLE' : 'JUMP';
-            this.duration = 0;
-          }
-        }
-
-        if (!this.isGrounded) {
-          this.vy += SF.GRAVITY;
-          if (this.vy > SF.MAX_FALL_SPEED) this.vy = SF.MAX_FALL_SPEED;
-        }
-
-        this.x += this.vx;
-        this.y += this.vy;
-
-        if (this.isGrounded) {
-          this.vx *= 0.78;
-          if (Math.abs(this.vx) < 0.1) this.vx = 0;
-        }
-
-        if (this.y >= SF.FLOOR_Y) {
-          this.y = SF.FLOOR_Y;
-          this.vy = 0;
-          if (!this.isGrounded) {
-            this.isGrounded = true;
-            this.jumpCount = 0;
-            if (this.state === 'JUMP') this.setState('IDLE');
-          }
-        } else {
-          this.isGrounded = false;
-        }
-
-        if (this.x < SF.ARENA_LEFT) this.x = SF.ARENA_LEFT;
-        if (this.x > SF.ARENA_RIGHT) this.x = SF.ARENA_RIGHT;
-
-        if (this.opponent && ['IDLE', 'WALK', 'JUMP', 'CROUCH'].includes(this.state)) {
-          this.facing = this.x < this.opponent.x ? 1 : -1;
-        }
-      }
-
-      move(dir) {
-        if (!['IDLE', 'WALK'].includes(this.state)) return;
-        this.vx = dir * this.char.speed;
-        this.state = 'WALK';
-      }
-
-      stopMove() {
-        if (this.state === 'WALK') this.state = 'IDLE';
-      }
-
-      jump() {
-        if (!['IDLE', 'WALK', 'JUMP'].includes(this.state)) return;
-        if (this.jumpCount < this.maxJumps) {
-          this.vy = this.char.jump;
-          this.isGrounded = false;
-          this.jumpCount++;
-          this.setState('JUMP');
-        }
-      }
-
-      crouch() {
-        if (['IDLE', 'WALK'].includes(this.state)) this.setState('CROUCH');
-      }
-
-      standUp() {
-        if (this.state === 'CROUCH') this.setState('IDLE');
-      }
-
-      attack() {
-        if (!['IDLE', 'WALK'].includes(this.state)) return;
-
-        this.comboStep = (this.comboStep % 3) + 1;
-        const dur = this.comboStep === 3 ? 20 : 14;
-        this.setState(`ATK_${this.comboStep}`, dur);
-        this.vx = this.facing * (this.comboStep === 3 ? 3 : 1.5);
-
-        Sound.playSlash();
-        this.checkHit(this.comboStep === 3 ? this.char.heavyDmg : this.char.lightDmg, this.comboStep === 3);
-      }
-
-      specialSkill() {
-        if (!['IDLE', 'WALK'].includes(this.state)) return;
-        if (this.sp < 25 || this.cooldownSkill > 0) return;
-
-        this.sp = Math.max(0, this.sp - 25);
-        this.cooldownSkill = 60;
-        this.setState('SKILL', 24);
-        this.vx = this.facing * 5;
-
-        Sound.playSlash();
-        this.checkHit(70, false, 45);
-      }
-
-      ultimate() {
-        if (!['IDLE', 'WALK'].includes(this.state)) return;
-        if (this.sp < 100) return;
-
-        this.sp = 0;
-        this.setState('ULT', 60);
-
-        if (this.char.id === 'BLUE_DRAGON') FX.triggerBlueDragonUlt(this);
-        else if (this.char.id === 'WHITE_TIGER') FX.triggerWhiteTigerUlt(this);
-        else if (this.char.id === 'VERMILION_BIRD') FX.triggerVermilionBirdUlt(this);
-        else if (this.char.id === 'BLACK_TORTOISE') FX.triggerBlackTortoiseUlt(this);
-      }
-
-      checkHit(damage, isHeavy = false, reach = 24) {
-        if (!this.opponent || this.opponent.isDead) return;
-        const dist = Math.abs(this.opponent.x - this.x);
-        const inFront = (this.opponent.x - this.x) * this.facing > 0;
-
-        if (dist < reach && inFront) {
-          const hitSuccess = this.opponent.takeDamage(damage, isHeavy ? 20 : 12, { x: isHeavy ? 6 : 3, y: isHeavy ? -4 : -2 }, this.char.guardBreak && isHeavy);
-          if (hitSuccess) this.sp = Math.min(100, this.sp + 8);
-
-          if (Network.isConnected) {
-            Network.send({
-              type: 'HIT_EVT',
-              damage,
-              isHeavy,
-              guardBreak: this.char.guardBreak && isHeavy
-            });
-          }
-        }
-      }
-
-      takeDamage(dmg, hitstun, knockback, isGuardBreak = false) {
-        if (this.isDead) return false;
-
-        const isGuarding = this.state === 'CROUCH';
-        if (isGuarding && !isGuardBreak) {
-          this.hp = Math.max(0, this.hp - Math.floor(dmg * 0.2));
-          this.sp = Math.min(100, this.sp + 4);
-          this.vx = -this.facing * 1.5;
-          Sound.playHit(false);
-          FX.spawnHitSparks(this.x, this.y - 16, '#ffffff');
-          return false;
-        }
-
-        const finalDmg = Math.floor(dmg * this.char.defense);
-        this.hp = Math.max(0, this.hp - finalDmg);
-        this.sp = Math.min(100, this.sp + 12);
-        this.vx = -this.facing * knockback.x;
-        this.vy = knockback.y;
-
-        if (this.hp <= 0) {
-          this.hp = 0;
-          this.isDead = true;
-          this.setState('DEAD');
-        } else {
-          this.setState('HURT', hitstun);
-        }
-
-        Sound.playHit(isHeavy);
-        FX.addShake(isHeavy ? 6 : 3);
-        FX.spawnHitSparks(this.x, this.y - 18, this.char.color);
-        return true;
-      }
-
-      draw(ctx) {
-        ctx.save();
-        const px = Math.floor(this.x);
-        const py = Math.floor(this.y);
-
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-        ctx.fillRect(px - 8, py, 16, 2);
-
-        ctx.translate(px, py);
-        ctx.scale(this.facing, 1);
-
-        const bob = (this.state === 'WALK' && Math.floor(this.animTick / 4) % 2 === 0) ? -1 : 0;
-        const c = this.char;
-
-        // Legs
-        ctx.fillStyle = '#111722';
-        if (this.state === 'WALK') {
-          const step = Math.floor(this.animTick / 4) % 4;
-          if (step === 0) { ctx.fillRect(-5, -8, 4, 8); ctx.fillRect(2, -8, 4, 8); }
-          else if (step === 1) { ctx.fillRect(-7, -8, 4, 7); ctx.fillRect(4, -9, 4, 9); }
-          else if (step === 2) { ctx.fillRect(-3, -8, 4, 8); ctx.fillRect(1, -8, 4, 8); }
-          else { ctx.fillRect(-2, -9, 4, 9); ctx.fillRect(5, -8, 4, 7); }
-        } else if (this.state === 'CROUCH') {
-          ctx.fillRect(-6, -6, 12, 6);
-        } else {
-          ctx.fillRect(-5, -8, 4, 8);
-          ctx.fillRect(2, -8, 4, 8);
-        }
-
-        // Torso & Robe
-        const torsoY = this.state === 'CROUCH' ? -14 : -20 + bob;
-        ctx.fillStyle = c.robe;
-        ctx.fillRect(-5, torsoY, 11, 12);
-
-        // V-Neck trim
-        ctx.fillStyle = c.trim;
-        ctx.fillRect(-1, torsoY + 1, 3, 5);
-
-        // Sash Belt
-        ctx.fillStyle = c.color;
-        ctx.fillRect(-6, torsoY + 8, 13, 3);
-
-        // Head & Hair
-        const headY = torsoY - 9;
-        ctx.fillStyle = c.hair;
-        ctx.fillRect(-4, headY, 8, 9);
-        ctx.fillRect(-2, headY - 3, 4, 3);
-
-        // Face
-        ctx.fillStyle = c.skin;
-        ctx.fillRect(0, headY + 2, 5, 5);
-
-        // Glowing Eye
-        ctx.fillStyle = c.color;
-        ctx.fillRect(2, headY + 3, 2, 2);
-
-        // Arms & Weapon
-        const armY = torsoY + 2;
-        if (this.state.startsWith('ATK_')) {
-          ctx.fillStyle = c.skin;
-          ctx.fillRect(4, armY - 2, 9, 3);
-
-          ctx.fillStyle = c.color;
-          if (c.weapon === 'SWORD') {
-            ctx.fillRect(12, armY - 5, 12, 2);
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(10, armY - 4, 16, 2);
-          } else if (c.weapon === 'AXE') {
-            ctx.fillRect(11, armY - 8, 4, 14);
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(14, armY - 11, 8, 10);
-          } else if (c.weapon === 'FAN') {
-            ctx.fillRect(11, armY - 6, 8, 8);
-          } else if (c.weapon === 'CHAIN') {
-            ctx.fillRect(12, armY - 3, 14, 2);
-            ctx.fillRect(24, armY - 6, 4, 8);
-          }
-
-          ctx.fillStyle = c.color;
-          ctx.fillRect(20, armY - 14, 3, 18);
-          ctx.fillRect(22, armY - 10, 4, 12);
-        } else if (this.state === 'CROUCH') {
-          ctx.fillStyle = c.color;
-          ctx.fillRect(6, torsoY - 2, 2, 14);
-        } else {
-          ctx.fillStyle = c.skin;
-          ctx.fillRect(2, armY, 3, 6);
-          ctx.fillStyle = c.color;
-          ctx.fillRect(-7, torsoY + 4, 5, 2);
-        }
-
-        ctx.restore();
-      }
-    }
-
-    /* =====================================================
-       7. MAIN ARCADE CONTROLLER & SEASONAL STAGES
-    ===================================================== */
-    class ArcadeGame {
-      constructor() {
-        this.mainCanvas = document.getElementById('gameCanvas');
-        this.mainCtx = this.mainCanvas.getContext('2d');
-
-        this.offscreen = document.createElement('canvas');
-        this.offscreen.width = SF.INTERNAL_W;
-        this.offscreen.height = SF.INTERNAL_H;
-        this.ctx = this.offscreen.getContext('2d');
-
-        this.mainCtx.imageSmoothingEnabled = false;
-        this.ctx.imageSmoothingEnabled = false;
-
-        this.myCharId = 'BLUE_DRAGON';
-        this.oppCharId = 'WHITE_TIGER';
+    class JoseonStageRenderer {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
         this.season = SF.SEASONS.SPRING;
-
-        this.p1 = null;
-        this.p2 = null;
-        this.localFighter = null;
-        this.remoteFighter = null;
-
-        this.roundTime = SF.ROUND_TIME;
-        this.timerTick = 0;
-        this.matchState = 'LOBBY';
-        this.bannerTimer = 0;
-        this.isAiMode = true;
-
-        this.initUI();
-        this.initNetwork();
-        this.initCardPreviews();
-        this.startLoop();
+        this.time = 0;
+        this.willowAngle = 0;
+        this.particles = [];
+        this.initWeatherParticles();
       }
 
-      initUI() {
-        document.querySelectorAll('.char-card').forEach(card => {
-          card.addEventListener('click', () => {
-            this.myCharId = card.getAttribute('data-char');
-            document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected-p1'));
-            card.classList.add('selected-p1');
-            Sound.init();
-            Sound.playSlash();
-          });
-        });
-
-        document.getElementById('btn-create-room').addEventListener('click', () => {
-          Sound.init();
-          this.isAiMode = false;
-          Network.createRoom((code) => {
-            document.getElementById('display-room-code').innerText = code;
-            document.getElementById('modal-create-room').style.display = 'flex';
-          });
-        });
-
-        document.getElementById('btn-copy-code').addEventListener('click', () => {
-          const code = document.getElementById('display-room-code').innerText;
-          navigator.clipboard.writeText(code).then(() => alert(`코드 [${code}] 복사 완료!`));
-        });
-
-        document.getElementById('btn-cancel-create').addEventListener('click', () => {
-          Network.cleanup();
-          document.getElementById('modal-create-room').style.display = 'none';
-        });
-
-        document.getElementById('btn-join-modal').addEventListener('click', () => {
-          Sound.init();
-          document.getElementById('modal-join-room').style.display = 'flex';
-          document.getElementById('input-join-code').focus();
-        });
-
-        document.getElementById('btn-confirm-join').addEventListener('click', () => {
-          const code = document.getElementById('input-join-code').value.trim();
-          if (code.length !== 6) return alert('6자리 룸 코드를 입력하세요.');
-          this.isAiMode = false;
-          document.getElementById('join-status-text').innerText = '호스트에 연결 중...';
-          Network.joinRoom(code, () => {
-            document.getElementById('modal-join-room').style.display = 'none';
-          });
-        });
-
-        document.getElementById('btn-cancel-join').addEventListener('click', () => {
-          Network.cleanup();
-          document.getElementById('modal-join-room').style.display = 'none';
-        });
-
-        document.getElementById('btn-practice-mode').addEventListener('click', () => {
-          Sound.init();
-          this.isAiMode = true;
-          this.startPracticeBattle();
-        });
-
-        document.getElementById('btn-rematch').addEventListener('click', () => {
-          if (this.isAiMode) this.startPracticeBattle();
-          else Network.send({ type: 'REMATCH' });
-        });
-
-        document.getElementById('btn-to-select').addEventListener('click', () => {
-          Network.cleanup();
-          this.showLobby();
-        });
-      }
-
-      initCardPreviews() {
-        document.querySelectorAll('.char-card').forEach(card => {
-          const charId = card.getAttribute('data-char');
-          const canvas = card.querySelector('.char-avatar-canvas');
-          if (!canvas) return;
-          canvas.width = 60;
-          canvas.height = 65;
-          const pctx = canvas.getContext('2d');
-          pctx.imageSmoothingEnabled = false;
-
-          const dummy = new PixelFighter(SF.CHARACTERS[charId], true);
-          dummy.x = 30;
-          dummy.y = 52;
-          dummy.draw(pctx);
-        });
-      }
-
-      initNetwork() {
-        Network.onConnected = () => {
-          if (!Network.isHost) {
-            Network.send({ type: 'GUEST_JOIN', charId: this.myCharId });
-          }
-        };
-
-        Network.onData = (pkg) => {
-          if (pkg.type === 'GUEST_JOIN' && Network.isHost) {
-            this.oppCharId = pkg.charId;
-            const keys = Object.keys(SF.SEASONS);
-            const seasonKey = keys[Math.floor(Math.random() * keys.length)];
-            Network.send({
-              type: 'INIT_MATCH',
-              hostChar: this.myCharId,
-              guestChar: this.oppCharId,
-              season: seasonKey
-            });
-            document.getElementById('modal-create-room').style.display = 'none';
-            this.startOnlineBattle(true, this.myCharId, this.oppCharId, seasonKey);
-          } else if (pkg.type === 'INIT_MATCH' && !Network.isHost) {
-            this.oppCharId = pkg.hostChar;
-            document.getElementById('modal-join-room').style.display = 'none';
-            this.startOnlineBattle(false, pkg.hostChar, pkg.guestChar, pkg.season);
-          } else if (pkg.type === 'SYNC') {
-            if (this.remoteFighter) {
-              this.remoteFighter.x = pkg.x;
-              this.remoteFighter.y = pkg.y;
-              this.remoteFighter.vx = pkg.vx;
-              this.remoteFighter.vy = pkg.vy;
-              this.remoteFighter.facing = pkg.facing;
-              this.remoteFighter.hp = pkg.hp;
-              this.remoteFighter.sp = pkg.sp;
-              this.remoteFighter.state = pkg.state;
-            }
-          } else if (pkg.type === 'ACT') {
-            if (this.remoteFighter) {
-              if (pkg.act === 'ATK') this.remoteFighter.attack();
-              else if (pkg.act === 'SKILL') this.remoteFighter.specialSkill();
-              else if (pkg.act === 'ULT') this.remoteFighter.ultimate();
-            }
-          } else if (pkg.type === 'HIT_EVT') {
-            if (this.localFighter) {
-              this.localFighter.takeDamage(pkg.damage, pkg.isHeavy ? 20 : 12, { x: 4, y: -3 }, pkg.guardBreak);
-            }
-          } else if (pkg.type === 'REMATCH') {
-            if (Network.isHost) {
-              const keys = Object.keys(SF.SEASONS);
-              const seasonKey = keys[Math.floor(Math.random() * keys.length)];
-              Network.send({ type: 'INIT_MATCH', hostChar: this.myCharId, guestChar: this.oppCharId, season: seasonKey });
-              this.startOnlineBattle(true, this.myCharId, this.oppCharId, seasonKey);
-            }
-          }
-        };
-
-        Network.onError = (err) => alert(err);
-      }
-
-      showLobby() {
-        this.matchState = 'LOBBY';
-        document.getElementById('select-screen').style.display = 'flex';
-        document.getElementById('battle-hud').style.display = 'none';
-        document.getElementById('result-screen').style.display = 'none';
-      }
-
-      startOnlineBattle(isHost, hostChar, guestChar, seasonKey) {
+      setSeason(seasonKey) {
         this.season = SF.SEASONS[seasonKey] || SF.SEASONS.SPRING;
-        const c1 = SF.CHARACTERS[hostChar];
-        const c2 = SF.CHARACTERS[guestChar];
+        this.initWeatherParticles();
+      }
 
-        this.p1 = new PixelFighter(c1, true);
-        this.p2 = new PixelFighter(c2, false);
-        this.p1.opponent = this.p2;
-        this.p2.opponent = this.p1;
-
-        if (isHost) {
-          this.localFighter = this.p1;
-          this.remoteFighter = this.p2;
-        } else {
-          this.localFighter = this.p2;
-          this.remoteFighter = this.p1;
+      initWeatherParticles() {
+        this.particles = [];
+        const count = 70;
+        for (let i = 0; i < count; i++) {
+          this.particles.push({
+            x: Math.random() * SF.WIDTH,
+            y: Math.random() * SF.HEIGHT,
+            size: Math.random() * 5 + 3,
+            vx: (Math.random() - 0.3) * 2.2,
+            vy: Math.random() * 1.8 + 1.2,
+            rot: Math.random() * Math.PI * 2,
+            vRot: (Math.random() - 0.5) * 0.06,
+            alpha: Math.random() * 0.7 + 0.3
+          });
         }
-
-        this.setupArenaUI(c1, c2, `온라인 [${Network.roomCode}]`);
-      }
-
-      startPracticeBattle() {
-        const keys = Object.keys(SF.SEASONS);
-        this.season = SF.SEASONS[keys[Math.floor(Math.random() * keys.length)]];
-
-        const pool = Object.keys(SF.CHARACTERS).filter(id => id !== this.myCharId);
-        this.oppCharId = pool[Math.floor(Math.random() * pool.length)];
-
-        const c1 = SF.CHARACTERS[this.myCharId];
-        const c2 = SF.CHARACTERS[this.oppCharId];
-
-        this.p1 = new PixelFighter(c1, true);
-        this.p2 = new PixelFighter(c2, false);
-        this.p1.opponent = this.p2;
-        this.p2.opponent = this.p1;
-
-        this.localFighter = this.p1;
-        this.remoteFighter = null;
-
-        this.setupArenaUI(c1, c2, '연습 모드 (AI)');
-      }
-
-      setupArenaUI(c1, c2, modeText) {
-        FX.reset();
-        this.roundTime = SF.ROUND_TIME;
-        this.timerTick = 0;
-        this.matchState = 'BATTLE';
-
-        document.getElementById('select-screen').style.display = 'none';
-        document.getElementById('result-screen').style.display = 'none';
-        document.getElementById('battle-hud').style.display = 'flex';
-
-        document.getElementById('p1-name').innerText = c1.nameKr;
-        document.getElementById('p1-badge').innerText = c1.title;
-        document.getElementById('p1-badge').style.color = c1.color;
-
-        document.getElementById('p2-name').innerText = c2.nameKr;
-        document.getElementById('p2-badge').innerText = c2.title;
-        document.getElementById('p2-badge').style.color = c2.color;
-
-        document.getElementById('hud-mode-badge').innerText = `${modeText} · ${this.season.name}`;
-        this.showBanner('결전 개시!', 80);
-      }
-
-      showBanner(txt, dur = 60) {
-        const b = document.getElementById('announcer-banner');
-        b.innerText = txt;
-        b.classList.add('show');
-        this.bannerTimer = dur;
-      }
-
-      startLoop() {
-        const tick = () => {
-          this.update();
-          this.render();
-          requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
       }
 
       update() {
-        if (this.bannerTimer > 0) {
-          this.bannerTimer--;
-          if (this.bannerTimer <= 0) document.getElementById('announcer-banner').classList.remove('show');
+        this.time += 0.025;
+        this.willowAngle = Math.sin(this.time * 1.4) * 0.12;
+
+        for (let p of this.particles) {
+          p.x += p.vx + Math.sin(this.time + p.y * 0.01) * 0.5;
+          p.y += p.vy;
+          p.rot += p.vRot;
+
+          if (p.y > SF.HEIGHT + 20) {
+            p.y = -20;
+            p.x = Math.random() * SF.WIDTH;
+          }
+          if (p.x < -30) p.x = SF.WIDTH + 30;
+          if (p.x > SF.WIDTH + 30) p.x = -30;
         }
-
-        if (this.matchState !== 'BATTLE') {
-          Input.flush();
-          return;
-        }
-
-        this.handleInput();
-
-        if (this.isAiMode && this.p2 && !this.p2.isDead) {
-          this.updateAi();
-        }
-
-        if (this.p1) this.p1.update();
-        if (this.p2) this.p2.update();
-
-        FX.spawnWeather(this.season.id);
-        FX.update(this.p1.isDead ? this.p1 : this.p2);
-
-        this.timerTick++;
-        if (this.timerTick >= 60) {
-          this.timerTick = 0;
-          if (this.roundTime > 0) this.roundTime--;
-        }
-
-        if (Network.isConnected && this.localFighter) {
-          Network.send({
-            type: 'SYNC',
-            x: this.localFighter.x,
-            y: this.localFighter.y,
-            vx: this.localFighter.vx,
-            vy: this.localFighter.vy,
-            facing: this.localFighter.facing,
-            hp: this.localFighter.hp,
-            sp: this.localFighter.sp,
-            state: this.localFighter.state
-          });
-        }
-
-        if ((this.p1.isDead || this.p2.isDead || this.roundTime <= 0) && this.matchState === 'BATTLE') {
-          this.handleGameOver();
-        }
-
-        this.updateHUD();
-        Input.flush();
-      }
-
-      handleInput() {
-        const f = this.localFighter;
-        if (!f || f.isDead) return;
-
-        let mx = 0;
-        if (Input.isDown('KeyA') || Input.isDown('ArrowLeft')) mx -= 1;
-        if (Input.isDown('KeyD') || Input.isDown('ArrowRight')) mx += 1;
-
-        if (mx !== 0) f.move(mx);
-        else f.stopMove();
-
-        if (Input.isPressed('KeyW') || Input.isPressed('ArrowUp')) f.jump();
-
-        if (Input.isDown('KeyS') || Input.isDown('ArrowDown')) f.crouch();
-        else if (f.state === 'CROUCH') f.standUp();
-
-        if (Input.isPressed('KeyJ')) {
-          f.attack();
-          if (Network.isConnected) Network.send({ type: 'ACT', act: 'ATK' });
-        }
-        if (Input.isPressed('KeyK')) {
-          f.specialSkill();
-          if (Network.isConnected) Network.send({ type: 'ACT', act: 'SKILL' });
-        }
-        if (Input.isPressed('KeyL')) {
-          f.ultimate();
-          if (Network.isConnected) Network.send({ type: 'ACT', act: 'ULT' });
-        }
-      }
-
-      updateAi() {
-        const ai = this.p2;
-        const target = this.p1;
-        const dist = Math.abs(target.x - ai.x);
-
-        if (ai.sp >= 100 && Math.random() < 0.05) {
-          ai.ultimate();
-          return;
-        }
-
-        if (dist > 35) {
-          ai.move(target.x < ai.x ? -1 : 1);
-        } else {
-          ai.stopMove();
-          if (Math.random() < 0.08) ai.attack();
-          else if (Math.random() < 0.03 && ai.sp >= 25) ai.specialSkill();
-          else if (Math.random() < 0.04) ai.crouch();
-        }
-      }
-
-      handleGameOver() {
-        this.matchState = 'VICTORY';
-        const winner = this.p1.isDead ? this.p2 : this.p1;
-        const isMeWinner = winner === this.localFighter;
-        this.showBanner('K.O.!', 120);
-
-        setTimeout(() => {
-          document.getElementById('result-screen').style.display = 'flex';
-          document.getElementById('victory-title').innerText = isMeWinner ? 'VICTORY' : 'DEFEAT';
-          document.getElementById('victory-subtitle').innerText = `${winner.char.nameKr} (${winner.char.title}) 승리!`;
-        }, 1500);
-      }
-
-      updateHUD() {
-        if (!this.p1 || !this.p2) return;
-        const p1Pct = (this.p1.hp / this.p1.maxHp) * 100;
-        const p2Pct = (this.p2.hp / this.p2.maxHp) * 100;
-
-        document.getElementById('p1-hp-bar').style.width = `${p1Pct}%`;
-        document.getElementById('p1-hp-lag').style.width = `${p1Pct}%`;
-        document.getElementById('p2-hp-bar').style.width = `${p2Pct}%`;
-        document.getElementById('p2-hp-lag').style.width = `${p2Pct}%`;
-
-        const p1SpPct = (this.p1.sp / 100) * 100;
-        const p2SpPct = (this.p2.sp / 100) * 100;
-        document.getElementById('p1-sp-bar').style.width = `${p1SpPct}%`;
-        document.getElementById('p2-sp-bar').style.width = `${p2SpPct}%`;
-
-        document.getElementById('round-timer').innerText = this.roundTime.toString().padStart(2, '0');
       }
 
       render() {
         const ctx = this.ctx;
         ctx.save();
 
-        if (FX.shake > 0) {
-          ctx.translate((Math.random() - 0.5) * FX.shake, (Math.random() - 0.5) * FX.shake);
+        // 1. 한지 바탕색
+        ctx.fillStyle = this.season.hanji;
+        ctx.fillRect(0, 0, SF.WIDTH, SF.HEIGHT);
+
+        // 2. 한지 닥종이 질감 (미세한 섬유 선)
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.025)';
+        for (let i = 0; i < 40; i++) {
+          const fx = ((i * 137.5) % SF.WIDTH);
+          const fy = ((i * 219.3) % SF.HEIGHT);
+          ctx.fillRect(fx, fy, 40, 1.5);
         }
 
-        this.drawPixelStage(ctx);
+        // 3. 원경: 먹 번짐 조선 산수화 연봉 (Far Mountains)
+        this.drawMountains(ctx);
 
-        if (this.p1) this.p1.draw(ctx);
-        if (this.p2) this.p2.draw(ctx);
+        // 4. 중경: 웅장한 조선 성문(홍예문 虹霓門) 및 기와 가옥
+        this.drawFortressGateAndHanok(ctx);
 
-        FX.draw(ctx);
+        // 5. 근경: 바닥 무대 (아레나 지면)
+        this.drawArenaFloor(ctx);
+
+        // 6. 근경 장식: 바람에 흔들리는 능수버들가지
+        this.drawWillowBranches(ctx);
+
+        // 7. 계절별 날씨 파티클 (벚꽃 / 반딧불이 / 단풍 / 함박눈)
+        this.drawWeatherParticles(ctx);
 
         ctx.restore();
-
-        // Crisp upscale to 1280x720 display canvas
-        this.mainCtx.drawImage(this.offscreen, 0, 0, 1280, 720);
       }
 
-      drawPixelStage(ctx) {
-        const s = this.season;
+      drawMountains(ctx) {
+        // 원경 1: 은은한 먹선 산맥
+        ctx.fillStyle = this.season.mountainLight;
+        ctx.beginPath();
+        ctx.moveTo(0, 420);
+        ctx.bezierCurveTo(240, 260, 480, 340, 680, 280);
+        ctx.bezierCurveTo(880, 220, 1080, 320, SF.WIDTH, 290);
+        ctx.lineTo(SF.WIDTH, SF.HEIGHT);
+        ctx.lineTo(0, SF.HEIGHT);
+        ctx.closePath();
+        ctx.fill();
 
-        ctx.fillStyle = s.sky;
-        ctx.fillRect(0, 0, SF.INTERNAL_W, SF.INTERNAL_H);
+        // 원경 2: 먹 번짐 중첩 산맥
+        ctx.fillStyle = this.season.wash;
+        ctx.beginPath();
+        ctx.moveTo(0, 460);
+        ctx.bezierCurveTo(180, 360, 360, 430, 560, 370);
+        ctx.bezierCurveTo(760, 310, 990, 410, SF.WIDTH, 360);
+        ctx.lineTo(SF.WIDTH, SF.HEIGHT);
+        ctx.lineTo(0, SF.HEIGHT);
+        ctx.closePath();
+        ctx.fill();
 
-        // Pixel Moon
-        ctx.fillStyle = s.moon;
-        ctx.fillRect(SF.INTERNAL_W / 2 - 16, 25, 32, 32);
-        ctx.fillStyle = s.accent;
-        ctx.fillRect(SF.INTERNAL_W / 2 - 12, 29, 24, 24);
+        // 아침 안개(운해) 그라데이션
+        const fogGrad = ctx.createLinearGradient(0, 350, 0, 520);
+        fogGrad.addColorStop(0, 'rgba(255,255,255,0)');
+        fogGrad.addColorStop(1, this.season.mist);
+        ctx.fillStyle = fogGrad;
+        ctx.fillRect(0, 350, SF.WIDTH, 170);
+      }
 
-        // Mountain Silhouettes
-        ctx.fillStyle = '#101524';
-        for (let i = 0; i < SF.INTERNAL_W; i += 8) {
-          const mHeight = 40 + Math.sin(i * 0.05) * 18;
-          ctx.fillRect(i, SF.FLOOR_Y - mHeight, 8, mHeight);
+      drawFortressGateAndHanok(ctx) {
+        ctx.save();
+        const stoneColor = this.season.gateStone;
+
+        // 좌측 한옥 정자/누각 (수묵 먹선풍)
+        ctx.strokeStyle = '#222';
+        ctx.fillStyle = '#2f2c27';
+        ctx.lineWidth = 3;
+
+        // 정자 팔작지붕 곡선
+        ctx.beginPath();
+        ctx.moveTo(80, 420);
+        ctx.quadraticCurveTo(170, 375, 260, 420);
+        ctx.lineTo(250, 435);
+        ctx.quadraticCurveTo(170, 400, 90, 435);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 정자 기둥
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(110, 435); ctx.lineTo(110, 550);
+        ctx.moveTo(170, 420); ctx.lineTo(170, 550);
+        ctx.moveTo(230, 435); ctx.lineTo(230, 550);
+        ctx.stroke();
+
+        // 중앙 성벽 석축 베이스
+        const gateX = 520;
+        const gateY = 340;
+        const gateW = 240;
+        const gateH = 220;
+
+        ctx.fillStyle = stoneColor;
+        ctx.strokeStyle = '#181512';
+        ctx.lineWidth = 4;
+        ctx.fillRect(gateX, gateY + 90, gateW, gateH - 90);
+        ctx.strokeRect(gateX, gateY + 90, gateW, gateH - 90);
+
+        // 홍예문 (무지개 아치문)
+        ctx.fillStyle = '#161412';
+        ctx.beginPath();
+        ctx.arc(gateX + gateW / 2, gateY + gateH, 55, Math.PI, 0, false);
+        ctx.fill();
+        ctx.stroke();
+
+        // 성문 위 누각 2층 팔작 기와지붕
+        ctx.fillStyle = '#23201d';
+        ctx.beginPath();
+        ctx.moveTo(gateX - 35, gateY + 90);
+        ctx.quadraticCurveTo(gateX + gateW / 2, gateY + 45, gateX + gateW + 35, gateY + 90);
+        ctx.lineTo(gateX + gateW + 20, gateY + 105);
+        ctx.quadraticCurveTo(gateX + gateW / 2, gateY + 70, gateX - 20, gateY + 105);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 성문 현판
+        ctx.fillStyle = '#111';
+        ctx.fillRect(gateX + gateW / 2 - 45, gateY + 115, 90, 24);
+        ctx.strokeStyle = '#c59b27';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(gateX + gateW / 2 - 45, gateY + 115, 90, 24);
+
+        ctx.fillStyle = '#f5efe2';
+        ctx.font = 'bold 12px "Noto Serif KR", serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('四方門 (사방문)', gateX + gateW / 2, gateY + 132);
+
+        ctx.restore();
+      }
+
+      drawArenaFloor(ctx) {
+        ctx.save();
+        // 무림 연무장 바닥 (먹선 경계 & 고풍스러운 흙돌 지면)
+        const floorGrad = ctx.createLinearGradient(0, SF.FLOOR_Y, 0, SF.HEIGHT);
+        floorGrad.addColorStop(0, '#544738');
+        floorGrad.addColorStop(0.2, '#382e23');
+        floorGrad.addColorStop(1, '#1e1812');
+        ctx.fillStyle = floorGrad;
+        ctx.fillRect(0, SF.FLOOR_Y, SF.WIDTH, SF.HEIGHT - SF.FLOOR_Y);
+
+        // 지면 먹선 굵은 붓터치 테두리
+        ctx.strokeStyle = '#12141a';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(0, SF.FLOOR_Y);
+        for (let x = 0; x <= SF.WIDTH; x += 80) {
+          ctx.lineTo(x, SF.FLOOR_Y + Math.sin(x * 0.05) * 2.5);
         }
+        ctx.stroke();
 
-        // Seasonal Props
-        if (s.id === 'SPRING') {
-          ctx.fillStyle = '#2b1a1a';
-          ctx.fillRect(15, 60, 6, 86);
-          ctx.fillStyle = '#ff80ab';
-          ctx.fillRect(8, 45, 24, 20);
-        } else if (s.id === 'SUMMER') {
-          ctx.fillStyle = '#112e1f';
-          ctx.fillRect(20, 40, 5, 106);
-          ctx.fillRect(SF.INTERNAL_W - 25, 40, 5, 106);
+        // 무대 좌우 결계 깃대/석등
+        this.drawArenaMarker(ctx, SF.ARENA_LEFT, SF.FLOOR_Y);
+        this.drawArenaMarker(ctx, SF.ARENA_RIGHT, SF.FLOOR_Y);
+        ctx.restore();
+      }
+
+      drawArenaMarker(ctx, x, y) {
+        ctx.save();
+        ctx.fillStyle = '#2c251d';
+        ctx.strokeStyle = '#12100d';
+        ctx.lineWidth = 3;
+
+        // 석등 기단
+        ctx.fillRect(x - 14, y - 55, 28, 55);
+        ctx.strokeRect(x - 14, y - 55, 28, 55);
+
+        // 석등 화사석 (불빛)
+        ctx.fillStyle = '#f4a261';
+        ctx.beginPath();
+        ctx.arc(x, y - 35, 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 석등 갓
+        ctx.fillStyle = '#1c1712';
+        ctx.beginPath();
+        ctx.moveTo(x - 22, y - 55);
+        ctx.lineTo(x + 22, y - 55);
+        ctx.lineTo(x, y - 72);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      drawWillowBranches(ctx) {
+        ctx.save();
+        ctx.strokeStyle = '#1c1713';
+        ctx.lineWidth = 5;
+        ctx.fillStyle = this.season.willow;
+
+        // 좌측 상단 능수버들 가지
+        ctx.beginPath();
+        ctx.moveTo(-10, -10);
+        ctx.quadraticCurveTo(120, 80, 220 + Math.sin(this.time) * 15, 180);
+        ctx.stroke();
+
+        // 늘어지는 버들 잎줄기들
+        for (let i = 0; i < 6; i++) {
+          const bx = 60 + i * 28;
+          const by = 40 + i * 22;
+          const sw = Math.sin(this.time * 1.5 + i) * 18;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(bx, by);
+          ctx.quadraticCurveTo(bx + sw * 0.5, by + 70, bx + sw, by + 140);
+          ctx.stroke();
+
+          // 잎사귀들
+          for (let j = 0; j < 4; j++) {
+            const lx = bx + (sw * 0.25 * j);
+            const ly = by + 25 * j + 15;
+            ctx.beginPath();
+            ctx.ellipse(lx, ly, 4, 8, 0.4 + this.willowAngle, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
+        ctx.restore();
+      }
 
-        // Stone Floor
-        ctx.fillStyle = '#222838';
-        ctx.fillRect(0, SF.FLOOR_Y, SF.INTERNAL_W, SF.INTERNAL_H - SF.FLOOR_Y);
+      drawWeatherParticles(ctx) {
+        ctx.save();
+        for (let p of this.particles) {
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.globalAlpha = p.alpha;
 
-        ctx.fillStyle = s.accent;
-        ctx.fillRect(0, SF.FLOOR_Y, SF.INTERNAL_W, 2);
+          if (this.season.id === 'SPRING') {
+            // 봄: 벚꽃 꽃잎 (Pink Blossom)
+            ctx.fillStyle = '#f28482';
+            ctx.beginPath();
+            ctx.moveTo(0, -p.size);
+            ctx.quadraticCurveTo(p.size, 0, 0, p.size);
+            ctx.quadraticCurveTo(-p.size, 0, 0, -p.size);
+            ctx.fill();
+          } else if (this.season.id === 'SUMMER') {
+            // 여름: 반딧불이 (Glow Firefly)
+            ctx.fillStyle = '#a7c957';
+            ctx.shadowColor = '#a7c957';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+          } else if (this.season.id === 'AUTUMN') {
+            // 가을: 단풍잎 (Maple Leaf)
+            ctx.fillStyle = this.season.leaves;
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size * 0.8, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            // 겨울: 함박눈 (Snowflake)
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = 'rgba(255,255,255,0.8)';
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size * 0.9, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+        ctx.restore();
       }
     }
 
-    // Launch Game on Load
+    /* =====================================================
+       E. MAPLE-STYLE SD CHARACTER RENDERER & LOGIC
+    ===================================================== */
+    class MapleSDCharacter {
+      constructor(config, x, facingRight = true) {
+        this.cfg = config;
+        this.x = x;
+        this.y = SF.FLOOR_Y;
+        this.vx = 0;
+        this.vy = 0;
+        this.facingRight = facingRight;
+        this.hp = config.maxHp;
+        this.maxHp = config.maxHp;
+        this.sp = 0;
+        this.maxSp = 100;
+
+        // 상태
+        this.isGrounded = true;
+        this.isGuarding = false;
+        this.isAttacking = false;
+        this.isHit = false;
+        this.isDead = false;
+        this.doubleJumped = false;
+
+        // 3단 콤보 시스템
+        this.comboStep = 0; // 0: None, 1: 찌르기, 2: 회전 횡베기, 3: 피니시 점프찍기
+        this.comboTimer = 0; // 콤보 입력 유효시간 (0.85초)
+        this.attackProgress = 0; // 공격 프레임 진행도 (0 ~ 1)
+        this.attackDuration = 0.25;
+
+        // 모션 타이머
+        this.animTime = Math.random() * 10;
+        this.hitStunTimer = 0;
+
+        // 타격 박스 (Hitbox)
+        this.hitbox = null;
+      }
+
+      update(dt) {
+        this.animTime += dt * 6;
+
+        // 피격 경직 처리
+        if (this.hitStunTimer > 0) {
+          this.hitStunTimer -= dt;
+          if (this.hitStunTimer <= 0) {
+            this.isHit = false;
+          }
+        }
+
+        // 콤보 타이머 카운트다운 (시간 지나면 1타로 자동 리셋)
+        if (this.comboTimer > 0) {
+          this.comboTimer -= dt;
+          if (this.comboTimer <= 0) {
+            this.comboStep = 0;
+          }
+        }
+
+        // 공격 애니메이션 진행
+        if (this.isAttacking) {
+          this.attackProgress += dt / this.attackDuration;
+          if (this.attackProgress >= 1.0) {
+            this.isAttacking = false;
+            this.attackProgress = 0;
+            this.hitbox = null;
+          }
+        }
+
+        // 물리 엔진 (중력 & 이동)
+        this.vy += SF.GRAVITY;
+        if (this.vy > SF.MAX_FALL_SPEED) this.vy = SF.MAX_FALL_SPEED;
+
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // 지면 충돌
+        if (this.y >= SF.FLOOR_Y) {
+          this.y = SF.FLOOR_Y;
+          this.vy = 0;
+          this.isGrounded = true;
+          this.doubleJumped = false;
+        } else {
+          this.isGrounded = false;
+        }
+
+        // 아레나 벽 충돌
+        if (this.x < SF.ARENA_LEFT + 30) this.x = SF.ARENA_LEFT + 30;
+        if (this.x > SF.ARENA_RIGHT - 30) this.x = SF.ARENA_RIGHT - 30;
+
+        // 마찰력
+        this.vx *= 0.82;
+        if (Math.abs(this.vx) < 0.1) this.vx = 0;
+      }
+
+      move(dir) {
+        if (this.isAttacking || this.isHit || this.isGuarding) return;
+        this.vx = dir * this.cfg.speed;
+        this.facingRight = dir > 0;
+      }
+
+      jump() {
+        if (this.isHit || this.isGuarding) return;
+        if (this.isGrounded) {
+          this.vy = this.cfg.jump;
+          this.isGrounded = false;
+          Sound.jump();
+        } else if (this.cfg.canDoubleJump && !this.doubleJumped) {
+          this.vy = this.cfg.jump * 0.9;
+          this.doubleJumped = true;
+          Sound.jump();
+        }
+      }
+
+      guard(active) {
+        if (this.isAttacking || this.isHit) return;
+        this.isGuarding = active;
+        if (active) this.vx = 0;
+      }
+
+      // J키 3단 콤보 공격 발동!
+      attackCombo(vfxMgr) {
+        if (this.isAttacking || this.isHit || this.isGuarding) return;
+
+        // 콤보 단계 전진 (1 -> 2 -> 3 -> 1)
+        if (this.comboStep === 0 || this.comboTimer <= 0) {
+          this.comboStep = 1;
+        } else if (this.comboStep === 1) {
+          this.comboStep = 2;
+        } else if (this.comboStep === 2) {
+          this.comboStep = 3;
+        } else {
+          this.comboStep = 1;
+        }
+
+        this.comboTimer = 0.85; // 0.85초 안에 다음 타수 입력 가능
+        this.isAttacking = true;
+        this.attackProgress = 0;
+
+        const forward = this.facingRight ? 1 : -1;
+
+        if (this.comboStep === 1) {
+          // [1타]: 전방 쾌속 찌르기 (빠르고 날카로운 먹선)
+          this.attackDuration = 0.22;
+          this.vx = forward * 5.0; // 전방 순간 찌르기 대시
+          Sound.thrust();
+          this.createHitbox(this.cfg.lightDmg, 75, 45, false, 'THRUST');
+          vfxMgr.addBrushTrail(this.x, this.y - 45, forward, 'THRUST', this.cfg.color);
+        } else if (this.comboStep === 2) {
+          // [2타]: 360도 회전 횡베기/상승베기 (호를 그리는 먹선 궤적)
+          this.attackDuration = 0.28;
+          this.vx = forward * 6.5;
+          Sound.spin();
+          this.createHitbox(this.cfg.spinDmg, 95, 60, false, 'SPIN');
+          vfxMgr.addBrushTrail(this.x, this.y - 50, forward, 'SPIN', this.cfg.color);
+        } else if (this.comboStep === 3) {
+          // [3타]: 피니시 도약 내리찍기 (강력한 기운과 수직 낙하 충격파)
+          this.attackDuration = 0.38;
+          this.vy = -7.5; // 살짝 공중 도약 후 내리찍기
+          this.vx = forward * 7.5;
+          Sound.slam();
+          this.createHitbox(this.cfg.heavyDmg, 115, 80, true, 'SLAM');
+          vfxMgr.addBrushTrail(this.x, this.y - 60, forward, 'SLAM', this.cfg.color);
+          vfxMgr.addInkShockwave(this.x + forward * 60, SF.FLOOR_Y, this.cfg.color);
+        }
+      }
+
+      // K키: 무기 특수 스킬
+      specialSkill(vfxMgr) {
+        if (this.isAttacking || this.isHit || this.isGuarding) return;
+        this.isAttacking = true;
+        this.attackProgress = 0;
+        this.attackDuration = 0.35;
+        const forward = this.facingRight ? 1 : -1;
+        Sound.special();
+
+        if (this.cfg.id === 'BLUE_DRAGON') {
+          // 청룡: 전방 돌진 풍압 검기 (질풍참)
+          this.vx = forward * 14;
+          this.createHitbox(85, 120, 50, true, 'GALE');
+          vfxMgr.addWindSlash(this.x, this.y - 45, forward);
+        } else if (this.cfg.id === 'WHITE_TIGER') {
+          // 백호: 지면 굉음 대도 강타 (가드 파괴 지진파)
+          this.vx = forward * 4;
+          this.createHitbox(110, 130, 80, true, 'QUAKE');
+          vfxMgr.addEarthQuake(this.x + forward * 70, SF.FLOOR_Y);
+        } else if (this.cfg.id === 'VERMILION_BIRD') {
+          // 주작: 철선 화염 탄환 발사
+          this.createHitbox(75, 160, 50, false, 'FIRE');
+          vfxMgr.addFireProjectile(this.x + forward * 40, this.y - 45, forward);
+        } else if (this.cfg.id === 'BLACK_TORTOISE') {
+          // 현무: 사슬낫 중거리 견인 결계
+          this.createHitbox(70, 150, 60, false, 'CHAIN');
+          vfxMgr.addChainPull(this.x, this.y - 45, forward);
+        }
+      }
+
+      createHitbox(damage, width, height, isHeavy, type) {
+        const forward = this.facingRight ? 1 : -1;
+        this.hitbox = {
+          x: this.facingRight ? this.x + 10 : this.x - width - 10,
+          y: this.y - height - 10,
+          w: width,
+          h: height,
+          damage: damage,
+          isHeavy: isHeavy,
+          type: type,
+          owner: this
+        };
+      }
+
+      takeDamage(amount, isHeavy, attackerX, vfxMgr) {
+        if (this.isDead) return;
+
+        if (this.isGuarding) {
+          // 방어 시 대미지 75% 감소
+          amount *= 0.25;
+          Sound.guard();
+          vfxMgr.addGuardSparks(this.x, this.y - 45);
+        } else {
+          Sound.hit(isHeavy);
+          this.isHit = true;
+          this.hitStunTimer = isHeavy ? 0.38 : 0.2;
+          // 피격 넉백
+          const pushDir = this.x > attackerX ? 1 : -1;
+          this.vx = pushDir * (isHeavy ? 10.5 : 5.0);
+          if (isHeavy) this.vy = -6;
+          // 먹물 튀김 VFX
+          vfxMgr.addInkSplatter(this.x, this.y - 50, isHeavy ? 18 : 9, this.cfg.color);
+        }
+
+        this.hp -= Math.round(amount * this.cfg.defense);
+        // 피격 시 기력(SP) 충전
+        this.sp = Math.min(this.maxSp, this.sp + 14);
+
+        if (this.hp <= 0) {
+          this.hp = 0;
+          this.isDead = true;
+        }
+      }
+
+      // =========================================
+      // 메이플스토리 감성 SD 캐릭터 캔버스 렌더링
+      // =========================================
+      render(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        if (!this.facingRight) ctx.scale(-1, 1);
+
+        // 1. 발밑 그림자 (수묵 먹물 타원)
+        ctx.fillStyle = 'rgba(18, 20, 26, 0.35)';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 32, 9, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 바운스 애니메이션 (숨쉬기 & 걷기)
+        const breathe = Math.sin(this.animTime) * 2;
+        const runBounce = Math.abs(this.vx) > 0.5 ? Math.abs(Math.sin(this.animTime * 2)) * 5 : 0;
+        const bodyY = -28 - runBounce + breathe;
+
+        // 피격 시 점멸/흔들림
+        if (this.isHit) {
+          ctx.translate((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);
+        }
+
+        // 2. 도포 자락 & 몸통 (2.5등신 귀여운 실루엣)
+        this.drawSDBody(ctx, bodyY);
+
+        // 3. 머리, 얼굴, 메이플풍 초롱초롱한 눈망울 & 볼터치
+        this.drawSDHead(ctx, bodyY - 34);
+
+        // 4. 무기 및 3단 콤보 모션 손 렌더링
+        this.drawSDWeapon(ctx, bodyY);
+
+        // 5. 방어막 이펙트
+        if (this.isGuarding) {
+          this.drawGuardAura(ctx, bodyY);
+        }
+
+        ctx.restore();
+      }
+
+      drawSDBody(ctx, bodyY) {
+        ctx.save();
+        // 다리 / 신발 (짚신/버선)
+        ctx.fillStyle = '#222';
+        const walkLeg = Math.sin(this.animTime * 2) * 6;
+        ctx.beginPath();
+        ctx.roundRect(-14 - walkLeg * 0.5, bodyY + 18, 10, 10, 4);
+        ctx.roundRect(4 + walkLeg * 0.5, bodyY + 18, 10, 10, 4);
+        ctx.fill();
+
+        // 도포 치마자락
+        ctx.fillStyle = this.cfg.robe;
+        ctx.strokeStyle = '#12141a';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(-18, bodyY + 4);
+        ctx.lineTo(18, bodyY + 4);
+        ctx.lineTo(24, bodyY + 22);
+        ctx.lineTo(-24, bodyY + 22);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // 몸통 상의 무복
+        ctx.fillStyle = this.cfg.robe;
+        ctx.beginPath();
+        ctx.roundRect(-15, bodyY - 10, 30, 20, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        // 허리 띠 (사슬 / 금실 허리대)
+        ctx.fillStyle = this.cfg.sash;
+        ctx.fillRect(-16, bodyY + 2, 32, 5);
+        ctx.strokeRect(-16, bodyY + 2, 32, 5);
+        ctx.restore();
+      }
+
+      drawSDHead(ctx, headY) {
+        ctx.save();
+        const headR = 25;
+
+        // 뒷머리 / 상투
+        ctx.fillStyle = this.cfg.hair;
+        ctx.beginPath();
+        ctx.arc(0, headY, headR + 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 뽀얀 SD 얼굴 피부
+        ctx.fillStyle = this.cfg.skin;
+        ctx.beginPath();
+        ctx.arc(0, headY + 3, headR - 1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 발그레한 핑크빛 볼터치 (메이플스토리 감성)
+        ctx.fillStyle = 'rgba(255, 130, 150, 0.45)';
+        ctx.beginPath();
+        ctx.ellipse(-13, headY + 7, 5, 3.5, 0, 0, Math.PI * 2);
+        ctx.ellipse(13, headY + 7, 5, 3.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 앞머리 스타일
+        ctx.fillStyle = this.cfg.hair;
+        ctx.beginPath();
+        ctx.moveTo(-headR, headY - 4);
+        ctx.quadraticCurveTo(0, headY - 14, headR, headY - 4);
+        ctx.lineTo(headR, headY - 10);
+        ctx.lineTo(-headR, headY - 10);
+        ctx.closePath();
+        ctx.fill();
+
+        // 상투 / 비녀 장식
+        ctx.beginPath();
+        ctx.arc(0, headY - headR - 2, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = this.cfg.sash;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(-9, headY - headR - 2);
+        ctx.lineTo(9, headY - headR - 2);
+        ctx.stroke();
+
+        // 표정: 눈 & 입
+        if (this.isHit) {
+          // 피격 시 찡긋 감은 눈 (> <)
+          ctx.strokeStyle = '#222';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(-14, headY); ctx.lineTo(-8, headY + 4); ctx.lineTo(-14, headY + 8);
+          ctx.moveTo(14, headY); ctx.lineTo(8, headY + 4); ctx.lineTo(14, headY + 8);
+          ctx.stroke();
+        } else {
+          // 초롱초롱한 메이플풍 눈동자
+          const eyeOffset = this.facingRight ? 3 : -3;
+          // 좌측 눈
+          ctx.fillStyle = '#1a181b';
+          ctx.beginPath();
+          ctx.ellipse(-8 + eyeOffset, headY + 3, 4.5, 6.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // 좌측 눈 하이라이트 (빛망울)
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(-7 + eyeOffset, headY + 1, 2, 0, Math.PI * 2);
+          ctx.arc(-9 + eyeOffset, headY + 5, 1, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 우측 눈
+          ctx.fillStyle = '#1a181b';
+          ctx.beginPath();
+          ctx.ellipse(8 + eyeOffset, headY + 3, 4.5, 6.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // 우측 눈 하이라이트
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(9 + eyeOffset, headY + 1, 2, 0, Math.PI * 2);
+          ctx.arc(7 + eyeOffset, headY + 5, 1, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 미소 짓는 귀여운 입
+          ctx.strokeStyle = '#443';
+          ctx.lineWidth = 1.8;
+          ctx.beginPath();
+          ctx.arc(eyeOffset * 0.5, headY + 11, 3.5, 0, Math.PI);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      drawSDWeapon(ctx, bodyY) {
+        ctx.save();
+        let handX = 12;
+        let handY = bodyY;
+        let weaponRot = 0.2;
+
+        // 3단 콤보 공격 모션별 무기 각도 & 위치 변화
+        if (this.isAttacking) {
+          const prog = this.attackProgress;
+          if (this.comboStep === 1) {
+            // [1타]: 전방 쾌속 찌르기 (무기를 전방으로 쭉 뻗음)
+            handX = 26 + Math.sin(prog * Math.PI) * 16;
+            handY = bodyY - 2;
+            weaponRot = Math.PI / 2; // 수평 찌르기 각도
+          } else if (this.comboStep === 2) {
+            // [2타]: 회전 횡베기/상승베기 (호를 그리며 올려벰)
+            const angleSweep = -Math.PI * 0.4 + prog * Math.PI * 1.2;
+            handX = 18 + Math.cos(angleSweep) * 14;
+            handY = bodyY - Math.sin(angleSweep) * 16;
+            weaponRot = angleSweep;
+          } else if (this.comboStep === 3) {
+            // [3타]: 피니시 도약 내리찍기 (위에서 아래로 수직 강타)
+            const slamAngle = -Math.PI * 0.6 + prog * Math.PI * 1.4;
+            handX = 20 + Math.cos(slamAngle) * 12;
+            handY = bodyY + Math.sin(slamAngle) * 18;
+            weaponRot = slamAngle;
+          }
+        }
+
+        ctx.translate(handX, handY);
+        ctx.rotate(weaponRot);
+
+        // 손 (둥글고 귀여운 찹쌀떡 손)
+        ctx.fillStyle = this.cfg.skin;
+        ctx.beginPath();
+        ctx.arc(0, 0, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 무기 렌더링
+        if (this.cfg.weapon === 'SWORD') {
+          // 청룡의 장검
+          ctx.fillStyle = '#e0fbfc';
+          ctx.strokeStyle = '#0077b6';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(0, -3);
+          ctx.lineTo(46, -1);
+          ctx.lineTo(54, 0); // 칼끝
+          ctx.lineTo(46, 1);
+          ctx.lineTo(0, 3);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          // 검 코등이 & 술 장식
+          ctx.fillStyle = '#c59b27';
+          ctx.fillRect(-3, -6, 4, 12);
+        } else if (this.cfg.weapon === 'AXE') {
+          // 백호의 거대 대도 / 도끼
+          ctx.fillStyle = '#6c584c';
+          ctx.fillRect(-8, -3, 34, 6); // 자루
+          // 도끼날
+          ctx.fillStyle = '#d8d8d8';
+          ctx.strokeStyle = '#e7a048';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(26, -10, 24, 0.4, 2.7);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        } else if (this.cfg.weapon === 'FAN') {
+          // 주작의 화려한 접부채 (철선)
+          ctx.fillStyle = '#c92a2a';
+          ctx.strokeStyle = '#ffd166';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.arc(0, 0, 32, -0.6, 0.6);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          // 부채살 먹선
+          ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+          ctx.beginPath();
+          ctx.moveTo(0, 0); ctx.lineTo(26, -12);
+          ctx.moveTo(0, 0); ctx.lineTo(32, 0);
+          ctx.moveTo(0, 0); ctx.lineTo(26, 12);
+          ctx.stroke();
+        } else if (this.cfg.weapon === 'CHAIN') {
+          // 현무의 사슬낫
+          ctx.strokeStyle = '#7f8c8d';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(10, 0, 14, 0, Math.PI * 1.5);
+          ctx.stroke();
+          // 낫 칼날
+          ctx.fillStyle = '#34495e';
+          ctx.beginPath();
+          ctx.moveTo(10, -14);
+          ctx.quadraticCurveTo(34, -20, 42, -6);
+          ctx.lineTo(16, -8);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      drawGuardAura(ctx, bodyY) {
+        ctx.save();
+        ctx.strokeStyle = '#ffd166';
+        ctx.fillStyle = 'rgba(255, 209, 102, 0.18)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(12, bodyY, 44, -Math.PI * 0.45, Math.PI * 0.45);
+        ctx.stroke();
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    /* =====================================================
+       F. SUMI-E VFX & FULLSCREEN ULTIMATE ENGINE
+    ===================================================== */
+    class SumiEVFXManager {
+      constructor() {
+        this.trails = [];
+        this.splatters = [];
+        this.projectiles = [];
+        this.ultimates = [];
+        this.screenShake = 0;
+      }
+
+      // 붓터치 잔상 궤적 추가 (1타 찌르기 / 2타 회전베기 / 3타 슬램)
+      addBrushTrail(x, y, forward, type, color) {
+        this.trails.push({
+          x: x, y: y, forward: forward, type: type, color: color,
+          alpha: 0.9, life: 0.28, maxLife: 0.28
+        });
+      }
+
+      // 먹물 튀김 파티클
+      addInkSplatter(x, y, count, color) {
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const spd = Math.random() * 8 + 2;
+          this.splatters.push({
+            x: x, y: y,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd - 2,
+            size: Math.random() * 6 + 2,
+            alpha: 1.0,
+            color: Math.random() > 0.4 ? '#111418' : color
+          });
+        }
+      }
+
+      // 지면 먹물 충격파 (3타 피니시)
+      addInkShockwave(x, y, color) {
+        this.screenShake = 12;
+        this.trails.push({
+          x: x, y: y, forward: 1, type: 'WAVE', color: color,
+          alpha: 1.0, radius: 10, maxRadius: 110, life: 0.35, maxLife: 0.35
+        });
+      }
+
+      addGuardSparks(x, y) {
+        for (let i = 0; i < 8; i++) {
+          const angle = (Math.random() - 0.5) * Math.PI;
+          this.splatters.push({
+            x: x, y: y,
+            vx: Math.cos(angle) * 7,
+            vy: Math.sin(angle) * 7,
+            size: 3, alpha: 1.0, color: '#ffd166'
+          });
+        }
+      }
+
+      // K스킬 발사체/이펙트
+      addWindSlash(x, y, forward) {
+        this.projectiles.push({
+          x: x, y: y, vx: forward * 16, vy: 0,
+          w: 60, h: 40, damage: 85, type: 'WIND', life: 0.45, color: '#00b4d8'
+        });
+      }
+
+      addEarthQuake(x, y) {
+        this.screenShake = 18;
+        this.addInkSplatter(x, y, 25, '#f77f00');
+      }
+
+      addFireProjectile(x, y, forward) {
+        this.projectiles.push({
+          x: x, y: y, vx: forward * 12, vy: (Math.random() - 0.5) * 2,
+          w: 50, h: 30, damage: 80, type: 'FIRE', life: 0.6, color: '#e63946'
+        });
+      }
+
+      addChainPull(x, y, forward) {
+        this.screenShake = 8;
+        this.addInkShockwave(x + forward * 80, y, '#212529');
+      }
+
+      // 풀스크린 궁극기 시전 (L키)
+      triggerUltimate(charId, caster) {
+        Sound.ultimate();
+        this.screenShake = 30;
+        this.ultimates.push({
+          charId: charId,
+          caster: caster,
+          time: 0,
+          duration: 1.8,
+          stampText: charId === 'BLUE_DRAGON' ? '靑龍出海' :
+                     charId === 'WHITE_TIGER' ? '白虎轟雷' :
+                     charId === 'VERMILION_BIRD' ? '朱雀焚天' : '玄武怒濤'
+        });
+      }
+
+      update(dt) {
+        if (this.screenShake > 0) {
+          this.screenShake -= dt * 45;
+          if (this.screenShake < 0) this.screenShake = 0;
+        }
+
+        // 잔상 업데이트
+        for (let i = this.trails.length - 1; i >= 0; i--) {
+          const t = this.trails[i];
+          t.life -= dt;
+          t.alpha = t.life / t.maxLife;
+          if (t.type === 'WAVE') t.radius += dt * 300;
+          if (t.life <= 0) this.trails.splice(i, 1);
+        }
+
+        // 먹물 튀김 업데이트
+        for (let i = this.splatters.length - 1; i >= 0; i--) {
+          const s = this.splatters[i];
+          s.x += s.vx;
+          s.y += s.vy;
+          s.vy += 0.4;
+          s.alpha -= dt * 2.5;
+          if (s.alpha <= 0 || s.y > SF.FLOOR_Y + 10) this.splatters.splice(i, 1);
+        }
+
+        // 발사체 업데이트
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+          const p = this.projectiles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+          p.life -= dt;
+          if (p.life <= 0 || p.x < 0 || p.x > SF.WIDTH) this.projectiles.splice(i, 1);
+        }
+
+        // 궁극기 업데이트
+        for (let i = this.ultimates.length - 1; i >= 0; i--) {
+          const u = this.ultimates[i];
+          u.time += dt;
+          if (u.time >= u.duration) this.ultimates.splice(i, 1);
+        }
+      }
+
+      render(ctx) {
+        ctx.save();
+
+        // 1. 붓터치 잔상 렌더링
+        for (let t of this.trails) {
+          ctx.save();
+          ctx.globalAlpha = t.alpha;
+          ctx.strokeStyle = t.color;
+          ctx.fillStyle = t.color;
+
+          if (t.type === 'THRUST') {
+            // [1타]: 직선 날카로운 먹선 궤적
+            ctx.lineWidth = 7;
+            ctx.beginPath();
+            ctx.moveTo(t.x, t.y);
+            ctx.lineTo(t.x + t.forward * 80, t.y);
+            ctx.stroke();
+          } else if (t.type === 'SPIN') {
+            // [2타]: 회전하는 반달 모양 먹물 붓터치
+            ctx.lineWidth = 14;
+            ctx.beginPath();
+            ctx.arc(t.x, t.y, 45, 0, Math.PI * 1.3);
+            ctx.stroke();
+          } else if (t.type === 'SLAM') {
+            // [3타]: 수직 내리찍기 먹물 궤적
+            ctx.lineWidth = 18;
+            ctx.beginPath();
+            ctx.moveTo(t.x, t.y - 80);
+            ctx.lineTo(t.x + t.forward * 40, t.y + 40);
+            ctx.stroke();
+          } else if (t.type === 'WAVE') {
+            // 바닥 충격파 링
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.ellipse(t.x, t.y, t.radius, t.radius * 0.35, 0, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // 2. 먹물 튀김 렌더링
+        for (let s of this.splatters) {
+          ctx.save();
+          ctx.globalAlpha = s.alpha;
+          ctx.fillStyle = s.color;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // 3. 발사체 렌더링
+        for (let p of this.projectiles) {
+          ctx.save();
+          ctx.fillStyle = p.color;
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = 15;
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y, p.w * 0.5, p.h * 0.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // 4. 풀스크린 궁극기 연출 (화면 암전 + 한자 서예 낙관 + 화면 장악)
+        for (let u of this.ultimates) {
+          this.renderFullscreenUltimate(ctx, u);
+        }
+
+        ctx.restore();
+      }
+
+      renderFullscreenUltimate(ctx, u) {
+        ctx.save();
+        const progress = u.time / u.duration;
+
+        // 배경 암전 (수묵 먹물 번짐)
+        ctx.fillStyle = `rgba(10, 8, 6, ${Math.min(0.85, (1 - Math.abs(progress - 0.5) * 2))})`;
+        ctx.fillRect(0, 0, SF.WIDTH, SF.HEIGHT);
+
+        // 한자 서예 붉은 낙관 도장 표시
+        if (progress > 0.1 && progress < 0.85) {
+          ctx.save();
+          ctx.translate(SF.WIDTH / 2, 220);
+          const stampScale = progress < 0.25 ? 1.0 + (0.25 - progress) * 4 : 1.0;
+          ctx.scale(stampScale, stampScale);
+
+          // 붉은 인장 사각 박스
+          ctx.fillStyle = 'rgba(201, 42, 42, 0.9)';
+          ctx.fillRect(-140, -45, 280, 90);
+          ctx.strokeStyle = '#f5efe2';
+          ctx.lineWidth = 4;
+          ctx.strokeRect(-134, -39, 268, 78);
+
+          // 서예 폰트
+          ctx.fillStyle = '#f5efe2';
+          ctx.font = 'bold 38px "Noto Serif KR", serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(u.stampText, 0, 2);
+          ctx.restore();
+        }
+
+        // 사방신 캐릭터별 풀스크린 연출
+        if (u.charId === 'BLUE_DRAGON') {
+          // 청룡: 거대한 청룡 환영이 화면을 좌우로 가로지름
+          ctx.strokeStyle = 'rgba(0, 180, 216, 0.85)';
+          ctx.lineWidth = 35;
+          ctx.beginPath();
+          const dragonX = -100 + progress * (SF.WIDTH + 300);
+          ctx.moveTo(dragonX - 300, 360 + Math.sin(progress * 15) * 120);
+          ctx.quadraticCurveTo(dragonX - 100, 360 - Math.sin(progress * 15) * 120, dragonX, 360);
+          ctx.stroke();
+        } else if (u.charId === 'WHITE_TIGER') {
+          // 백호: 거대 영산 바위 낙하와 화면 전체 벼락
+          ctx.strokeStyle = '#ffd166';
+          ctx.lineWidth = 8;
+          for (let b = 0; b < 6; b++) {
+            ctx.beginPath();
+            ctx.moveTo(150 + b * 200, 0);
+            ctx.lineTo(180 + b * 200, 250);
+            ctx.lineTo(140 + b * 200, 420);
+            ctx.lineTo(200 + b * 200, SF.FLOOR_Y);
+            ctx.stroke();
+          }
+        } else if (u.charId === 'VERMILION_BIRD') {
+          // 주작: 하늘에서 쏟아지는 화염 유성우 폭격
+          ctx.fillStyle = '#e63946';
+          for (let m = 0; m < 14; m++) {
+            const mx = (m * 95 + progress * 400) % SF.WIDTH;
+            const my = (progress * 800 + m * 45) % SF.HEIGHT;
+            ctx.beginPath();
+            ctx.arc(mx, my, 18, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else if (u.charId === 'BLACK_TORTOISE') {
+          // 현무: 바닥에서 솟구쳐오르는 거대한 먹빛 해일
+          ctx.fillStyle = 'rgba(20, 33, 61, 0.75)';
+          ctx.beginPath();
+          ctx.moveTo(0, SF.HEIGHT);
+          for (let wx = 0; wx <= SF.WIDTH; wx += 60) {
+            ctx.lineTo(wx, SF.FLOOR_Y - 220 + Math.sin(wx * 0.02 + progress * 10) * 80);
+          }
+          ctx.lineTo(SF.WIDTH, SF.HEIGHT);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    /* =====================================================
+       G. PEERJS WEBRTC P2P NETWORK MANAGER
+    ===================================================== */
+    const Network = {
+      peer: null,
+      conn: null,
+      isHost: false,
+      isConnected: false,
+      roomCode: '',
+
+      initHost(onReady, onGuestJoin) {
+        this.isHost = true;
+        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+        this.roomCode = code;
+        const peerId = `murim-sd-${code}`;
+
+        this.peer = new Peer(peerId, {
+          config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+        });
+
+        this.peer.on('open', (id) => {
+          onReady(code);
+        });
+
+        this.peer.on('connection', (connection) => {
+          this.conn = connection;
+          this.setupDataChannel(onGuestJoin);
+        });
+
+        this.peer.on('error', (err) => {
+          alert('네트워크 연결 중 오류가 발생했습니다: ' + err.type);
+        });
+      },
+
+      initGuest(code, onSuccess, onError) {
+        this.isHost = false;
+        this.roomCode = code.toUpperCase();
+        const hostPeerId = `murim-sd-${this.roomCode}`;
+
+        this.peer = new Peer({
+          config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+        });
+
+        this.peer.on('open', () => {
+          this.conn = this.peer.connect(hostPeerId, { reliable: true });
+          this.setupDataChannel(onSuccess);
+        });
+
+        this.peer.on('error', (err) => {
+          if (onError) onError(err);
+        });
+      },
+
+      setupDataChannel(onReady) {
+        this.conn.on('open', () => {
+          this.isConnected = true;
+          if (onReady) onReady();
+        });
+        this.conn.on('data', (data) => {
+          Game.handleNetworkMessage(data);
+        });
+        this.conn.on('close', () => {
+          this.isConnected = false;
+          alert('상대방과의 대전 연결이 종료되었습니다.');
+          Game.returnToLobby();
+        });
+      },
+
+      send(msg) {
+        if (this.conn && this.conn.open) {
+          this.conn.send(msg);
+        }
+      }
+    };
+
+    /* =====================================================
+       H. AI BOT CONTROLLER (연습 모드 봇)
+    ===================================================== */
+    class AIBotController {
+      constructor(character, target) {
+        this.char = character;
+        this.target = target;
+        this.thinkTimer = 0;
+        this.action = 'IDLE';
+      }
+
+      update(dt, vfxMgr) {
+        this.thinkTimer -= dt;
+        const dist = Math.abs(this.char.x - this.target.x);
+        const forward = this.target.x > this.char.x ? 1 : -1;
+
+        if (this.thinkTimer <= 0) {
+          this.thinkTimer = Math.random() * 0.35 + 0.2;
+          this.char.guard(false);
+
+          if (dist > 150) {
+            // 적에게 접근
+            this.char.move(forward);
+            if (Math.random() < 0.25) this.char.jump();
+          } else if (dist < 60 && Math.random() < 0.4) {
+            // 방어 또는 후퇴
+            if (Math.random() < 0.5) {
+              this.char.guard(true);
+            } else {
+              this.char.move(-forward);
+            }
+          } else {
+            // 공격 거리 내: 3단 콤보 or 스킬 or 궁극기
+            if (this.char.sp >= 100 && Math.random() < 0.6) {
+              this.char.sp = 0;
+              vfxMgr.triggerUltimate(this.char.cfg.id, this.char);
+              this.target.takeDamage(180, true, this.char.x, vfxMgr);
+            } else if (Math.random() < 0.35) {
+              this.char.specialSkill(vfxMgr);
+            } else {
+              this.char.attackCombo(vfxMgr);
+            }
+          }
+        }
+      }
+    }
+
+    /* =====================================================
+       I. MAIN ARCADE CONTROLLER & GAME LOOP
+    ===================================================== */
+    const Game = {
+      canvas: null,
+      ctx: null,
+      stage: null,
+      vfx: null,
+      player1: null,
+      player2: null,
+      aiBot: null,
+      isPractice: false,
+      selectedCharId: 'BLUE_DRAGON',
+      roundTimer: 99,
+      timerInterval: null,
+      isGameOver: false,
+      lastTime: 0,
+
+      init() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.stage = new JoseonStageRenderer(this.canvas);
+        this.vfx = new SumiEVFXManager();
+
+        Input.init();
+        this.setupUIEvents();
+        this.renderLobbyMiniAvatars();
+
+        this.lastTime = performance.now();
+        requestAnimationFrame((t) => this.gameLoop(t));
+      },
+
+      setupUIEvents() {
+        // 캐릭터 선택 카드 클릭 이벤트
+        document.querySelectorAll('.char-card').forEach(card => {
+          card.addEventListener('click', () => {
+            document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            this.selectedCharId = card.dataset.char;
+            Sound.thrust();
+          });
+        });
+
+        // 1. 연습 모드 (vs AI) 시작
+        document.getElementById('btn-practice-mode').addEventListener('click', () => {
+          this.isPractice = true;
+          // 랜덤 상대 캐릭터 선정
+          const charKeys = Object.keys(SF.CHARACTERS);
+          const p2CharId = charKeys[Math.floor(Math.random() * charKeys.length)];
+          this.startBattle(this.selectedCharId, p2CharId);
+        });
+
+        // 2. 방 만들기 (P2P Host)
+        document.getElementById('btn-create-room').addEventListener('click', () => {
+          this.isPractice = false;
+          document.getElementById('modal-create-room').style.display = 'flex';
+          Network.initHost(
+            (code) => {
+              document.getElementById('display-room-code').innerText = code;
+            },
+            () => {
+              // Guest 입장 완료!
+              document.getElementById('modal-create-room').style.display = 'none';
+              Network.send({ type: 'START', hostChar: this.selectedCharId });
+            }
+          );
+        });
+
+        document.getElementById('btn-cancel-create').addEventListener('click', () => {
+          document.getElementById('modal-create-room').style.display = 'none';
+        });
+
+        document.getElementById('btn-copy-code').addEventListener('click', () => {
+          const code = document.getElementById('display-room-code').innerText;
+          navigator.clipboard.writeText(code).then(() => alert('방 코드가 클립보드에 복사되었습니다!'));
+        });
+
+        // 3. 방 참가하기 (P2P Guest)
+        document.getElementById('btn-join-modal').addEventListener('click', () => {
+          document.getElementById('modal-join-room').style.display = 'flex';
+          document.getElementById('join-status-text').innerText = '';
+        });
+
+        document.getElementById('btn-cancel-join').addEventListener('click', () => {
+          document.getElementById('modal-join-room').style.display = 'none';
+        });
+
+        document.getElementById('btn-confirm-join').addEventListener('click', () => {
+          const code = document.getElementById('input-join-code').value.trim();
+          if (code.length !== 6) {
+            alert('6자리 코드를 정확히 입력하세요.');
+            return;
+          }
+          document.getElementById('join-status-text').innerText = '호스트에게 연결 요청 중...';
+          Network.initGuest(code, () => {
+            document.getElementById('modal-join-room').style.display = 'none';
+            Network.send({ type: 'GUEST_READY', guestChar: this.selectedCharId });
+          }, (err) => {
+            document.getElementById('join-status-text').innerText = '연결 실패: 코드를 확인하세요.';
+          });
+        });
+
+        // 재경기 & 로비 이동 버튼
+        document.getElementById('btn-rematch').addEventListener('click', () => {
+          document.getElementById('result-screen').style.display = 'none';
+          if (this.isPractice) {
+            const charKeys = Object.keys(SF.CHARACTERS);
+            const p2CharId = charKeys[Math.floor(Math.random() * charKeys.length)];
+            this.startBattle(this.selectedCharId, p2CharId);
+          } else {
+            this.startBattle(this.player1.cfg.id, this.player2.cfg.id);
+          }
+        });
+
+        document.getElementById('btn-to-select').addEventListener('click', () => {
+          this.returnToLobby();
+        });
+      },
+
+      renderLobbyMiniAvatars() {
+        Object.keys(SF.CHARACTERS).forEach(id => {
+          const cvs = document.getElementById(`canvas-card-${id}`);
+          if (!cvs) return;
+          cvs.width = 110;
+          cvs.height = 120;
+          const cCtx = cvs.getContext('2d');
+          const charInst = new MapleSDCharacter(SF.CHARACTERS[id], 55, true);
+          charInst.y = 100;
+          charInst.render(cCtx);
+        });
+      },
+
+      startBattle(p1CharId, p2CharId) {
+        document.getElementById('select-screen').style.display = 'none';
+        document.getElementById('battle-hud').style.display = 'flex';
+        document.getElementById('result-screen').style.display = 'none';
+
+        // 랜덤 계절 배경 선택 (봄/여름/가을/겨울)
+        const seasonKeys = ['SPRING', 'SUMMER', 'AUTUMN', 'WINTER'];
+        const chosenSeason = seasonKeys[Math.floor(Math.random() * seasonKeys.length)];
+        this.stage.setSeason(chosenSeason);
+        document.getElementById('season-text').innerText = this.stage.season.name;
+
+        // 플레이어 캐릭터 생성
+        this.player1 = new MapleSDCharacter(SF.CHARACTERS[p1CharId], 360, true);
+        this.player2 = new MapleSDCharacter(SF.CHARACTERS[p2CharId], 920, false);
+
+        if (this.isPractice) {
+          this.aiBot = new AIBotController(this.player2, this.player1);
+        } else {
+          this.aiBot = null;
+        }
+
+        // HUD 프로필 업데이트
+        document.getElementById('avatar-p1').innerText = this.player1.cfg.avatar;
+        document.getElementById('name-p1').innerText = this.player1.cfg.nameKr;
+        document.getElementById('title-p1').innerText = this.player1.cfg.title;
+
+        document.getElementById('avatar-p2').innerText = this.player2.cfg.avatar;
+        document.getElementById('name-p2').innerText = this.player2.cfg.nameKr;
+        document.getElementById('title-p2').innerText = this.player2.cfg.title;
+
+        this.roundTimer = SF.ROUND_TIME;
+        this.isGameOver = false;
+
+        clearInterval(this.timerInterval);
+        this.timerInterval = setInterval(() => {
+          if (!this.isGameOver && this.roundTimer > 0) {
+            this.roundTimer--;
+            document.getElementById('timer-text').innerText = this.roundTimer;
+            if (this.roundTimer <= 0) this.handleTimeout();
+          }
+        }, 1000);
+      },
+
+      handleTimeout() {
+        this.isGameOver = true;
+        let winnerText = '';
+        if (this.player1.hp > this.player2.hp) winnerText = `${this.player1.cfg.nameKr} 판정승!`;
+        else if (this.player2.hp > this.player1.hp) winnerText = `${this.player2.cfg.nameKr} 판정승!`;
+        else winnerText = '무승부!';
+        this.showResultScreen(winnerText);
+      },
+
+      returnToLobby() {
+        clearInterval(this.timerInterval);
+        document.getElementById('battle-hud').style.display = 'none';
+        document.getElementById('result-screen').style.display = 'none';
+        document.getElementById('select-screen').style.display = 'flex';
+        this.player1 = null;
+        this.player2 = null;
+      },
+
+      showResultScreen(title) {
+        this.isGameOver = true;
+        clearInterval(this.timerInterval);
+        document.getElementById('victory-title').innerText = title;
+        document.getElementById('victory-subtitle').innerText = '사방신 무림의 승패가 갈렸습니다.';
+        document.getElementById('result-screen').style.display = 'flex';
+      },
+
+      handleNetworkMessage(data) {
+        if (data.type === 'START') {
+          this.startBattle(data.hostChar, this.selectedCharId);
+        } else if (data.type === 'GUEST_READY') {
+          this.startBattle(this.selectedCharId, data.guestChar);
+        } else if (data.type === 'SYNC') {
+          // 상대방 위치 및 상태 동기화
+          const remotePlayer = Network.isHost ? this.player2 : this.player1;
+          if (remotePlayer) {
+            remotePlayer.x = data.x;
+            remotePlayer.y = data.y;
+            remotePlayer.facingRight = data.facingRight;
+            remotePlayer.hp = data.hp;
+            remotePlayer.sp = data.sp;
+            remotePlayer.isGuarding = data.isGuarding;
+          }
+        } else if (data.type === 'ACTION') {
+          const remotePlayer = Network.isHost ? this.player2 : this.player1;
+          if (remotePlayer) {
+            if (data.action === 'ATTACK') remotePlayer.attackCombo(this.vfx);
+            else if (data.action === 'SKILL') remotePlayer.specialSkill(this.vfx);
+            else if (data.action === 'ULTIMATE') {
+              remotePlayer.sp = 0;
+              this.vfx.triggerUltimate(remotePlayer.cfg.id, remotePlayer);
+            }
+          }
+        }
+      },
+
+      gameLoop(timestamp) {
+        const dt = Math.min((timestamp - this.lastTime) / 1000, 0.05);
+        this.lastTime = timestamp;
+
+        this.update(dt);
+        this.render();
+
+        requestAnimationFrame((t) => this.gameLoop(t));
+      },
+
+      update(dt) {
+        this.stage.update();
+        this.vfx.update(dt);
+
+        if (!this.player1 || !this.player2) return;
+
+        // 1P 조작키 처리 (WASD + JKL)
+        if (!this.isGameOver && !this.player1.isDead) {
+          if (Input.isDown('a')) this.player1.move(-1);
+          else if (Input.isDown('d')) this.player1.move(1);
+
+          if (Input.isJustPressed('w')) this.player1.jump();
+          this.player1.guard(Input.isDown('s'));
+
+          if (Input.isJustPressed('j')) {
+            this.player1.attackCombo(this.vfx);
+            if (!this.isPractice) Network.send({ type: 'ACTION', action: 'ATTACK' });
+          }
+          if (Input.isJustPressed('k')) {
+            this.player1.specialSkill(this.vfx);
+            if (!this.isPractice) Network.send({ type: 'ACTION', action: 'SKILL' });
+          }
+          if (Input.isJustPressed('l')) {
+            if (this.player1.sp >= 100) {
+              this.player1.sp = 0;
+              this.vfx.triggerUltimate(this.player1.cfg.id, this.player1);
+              this.player2.takeDamage(190, true, this.player1.x, this.vfx);
+              if (!this.isPractice) Network.send({ type: 'ACTION', action: 'ULTIMATE' });
+            }
+          }
+        }
+
+        // AI 또는 2P 업데이트
+        if (this.aiBot) {
+          this.aiBot.update(dt, this.vfx);
+        }
+
+        this.player1.update(dt);
+        this.player2.update(dt);
+
+        // 히트박스 충돌 판정 (1P -> 2P, 2P -> 1P)
+        this.checkCombatCollision(this.player1, this.player2);
+        this.checkCombatCollision(this.player2, this.player1);
+
+        // HUD 갱신
+        this.updateHUD();
+
+        // 실시간 P2P 데이터 동기화 전송
+        if (!this.isPractice && Network.isConnected) {
+          const myChar = Network.isHost ? this.player1 : this.player2;
+          Network.send({
+            type: 'SYNC',
+            x: myChar.x,
+            y: myChar.y,
+            facingRight: myChar.facingRight,
+            hp: myChar.hp,
+            sp: myChar.sp,
+            isGuarding: myChar.isGuarding
+          });
+        }
+
+        // KO 승패 체크
+        if (!this.isGameOver) {
+          if (this.player1.isDead) {
+            this.showResultScreen(`${this.player2.cfg.nameKr} 승리!`);
+          } else if (this.player2.isDead) {
+            this.showResultScreen(`${this.player1.cfg.nameKr} 승리!`);
+          }
+        }
+      },
+
+      checkCombatCollision(attacker, defender) {
+        if (!attacker.hitbox || defender.isDead) return;
+        const h = attacker.hitbox;
+
+        // AABB 충돌 체크
+        const defLeft = defender.x - 22;
+        const defRight = defender.x + 22;
+        const defTop = defender.y - 70;
+        const defBottom = defender.y;
+
+        const hitLeft = h.x;
+        const hitRight = h.x + h.w;
+        const hitTop = h.y;
+        const hitBottom = h.y + h.h;
+
+        if (hitRight > defLeft && hitLeft < defRight && hitBottom > defTop && hitTop < defBottom) {
+          defender.takeDamage(h.damage, h.isHeavy, attacker.x, this.vfx);
+          attacker.sp = Math.min(attacker.maxSp, attacker.sp + 18); // 공격 성공 시 SP 충전
+          attacker.hitbox = null; // 1회 히트 후 소멸
+        }
+      },
+
+      updateHUD() {
+        if (!this.player1 || !this.player2) return;
+
+        // 1P HP / SP
+        const p1HpPct = (this.player1.hp / this.player1.maxHp) * 100;
+        document.getElementById('hp-p1').style.width = `${p1HpPct}%`;
+        document.getElementById('hp-txt-p1').innerText = `${this.player1.hp} / ${this.player1.maxHp}`;
+        document.getElementById('sp-p1').style.width = `${this.player1.sp}%`;
+
+        // 2P HP / SP
+        const p2HpPct = (this.player2.hp / this.player2.maxHp) * 100;
+        document.getElementById('hp-p2').style.width = `${p2HpPct}%`;
+        document.getElementById('hp-txt-p2').innerText = `${this.player2.hp} / ${this.player2.maxHp}`;
+        document.getElementById('sp-p2').style.width = `${this.player2.sp}%`;
+
+        // 콤보 표시
+        const comboP1 = document.getElementById('combo-p1');
+        if (this.player1.comboStep > 1 && this.player1.isAttacking) {
+          comboP1.innerText = `${this.player1.comboStep}단 연계!`;
+          comboP1.classList.add('active');
+        } else {
+          comboP1.classList.remove('active');
+        }
+      },
+
+      render() {
+        this.ctx.save();
+
+        // 카메라 쉐이크 효과
+        if (this.vfx.screenShake > 0) {
+          const shakeX = (Math.random() - 0.5) * this.vfx.screenShake;
+          const shakeY = (Math.random() - 0.5) * this.vfx.screenShake;
+          this.ctx.translate(shakeX, shakeY);
+        }
+
+        // 1. 수묵담채화 한지 배경
+        this.stage.render();
+
+        // 2. 캐릭터 렌더링
+        if (this.player1) this.player1.render(this.ctx);
+        if (this.player2) this.player2.render(this.ctx);
+
+        // 3. 수묵 VFX & 궁극기 연출
+        this.vfx.render(this.ctx);
+
+        this.ctx.restore();
+      }
+    };
+
+    // 윈도우 로드 시 게임 엔진 가동
     window.addEventListener('DOMContentLoaded', () => {
-      window.Arcade = new ArcadeGame();
+      Game.init();
     });
   </script>
 </body>
