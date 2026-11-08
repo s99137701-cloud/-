@@ -1,3 +1,16 @@
 {
-  "cleanUrls": true
+  "version": 2,
+  "name": "four-gods-murim",
+  "builds": [
+    {
+      "src": "index.html",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ]
 }
